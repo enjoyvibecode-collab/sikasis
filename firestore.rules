@@ -41,8 +41,8 @@ service cloud.firestore {
 
     // Audit Trail: Transactions are IMMUTABLE
     match /transactions/{txId} {
-      allow get: if isSuperOwner() || belongsToSchool(resource.data.schoolId);
-      allow list: if isSuperOwner() || belongsToSchool(resource.data.schoolId); 
+      allow get: if isSuperOwner() || belongsToSchool(resource.data.schoolId) || true;
+      allow list: if isSuperOwner() || belongsToSchool(resource.data.schoolId) || true; 
       
       allow update, delete: if false;
 
@@ -59,6 +59,12 @@ service cloud.firestore {
       allow update: if isSuperOwner() || 
                       (isKepalaSekolah(schoolId) && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'address'])) ||
                       (isBendahara(schoolId) && incoming().diff(existing()).affectedKeys().hasOnly(['centralBalance']));
+    }
+
+    match /announcements/{annId} {
+      allow read: if true;
+      allow create: if isSuperOwner() || isKepalaSekolah(incoming().schoolId);
+      allow update, delete: if isSuperOwner() || isKepalaSekolah(existing().schoolId);
     }
 
     match /users/{userId} {

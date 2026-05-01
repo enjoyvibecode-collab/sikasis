@@ -85,6 +85,19 @@
       },
       "required": ["schoolId", "type", "amount", "executorId", "timestamp"]
     },
+    "announcements": {
+      "title": "Announcements",
+      "description": "Public school-wide announcements.",
+      "type": "object",
+      "properties": {
+        "schoolId": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "authorId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["schoolId", "title", "content"]
+    },
     "system_config": {
       "title": "System Config",
       "description": "Global settings for the platform.",
@@ -102,6 +115,7 @@
     "/students/{studentId}": { "schema": "student", "description": "Student identity and savings ledger" },
     "/tu_wallets/{walletId}": { "schema": "tu_wallet", "description": "TU physical cash tracking (ID: schoolId_TUuid)" },
     "/transactions/{transactionId}": { "schema": "transaction", "description": "High-integrity immutable transaction logs" },
+    "/announcements/{annId}": { "schema": "announcements", "description": "Public announcements from school" },
     "/system/config": { "schema": "system_config", "description": "Global application configuration" }
   }
 }

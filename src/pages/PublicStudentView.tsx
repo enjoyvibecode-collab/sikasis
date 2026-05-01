@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, getDocs, orderBy, limit, doc, getDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { Button, Input, Card } from '../components/UI';
 import { Wallet, Search, TrendingUp, History, User, AlertCircle, RefreshCw, Download, FileText, Table, ArrowLeft } from 'lucide-react';
@@ -42,10 +42,15 @@ export default function PublicStudentView() {
         const studentData = { id: studentDoc.id, ...studentDoc.data() } as Student;
         setStudent(studentData);
 
-        // Fetch School Info - searching in schools collection which uses docId as the id usually
-        const schoolDoc = await getDocs(query(collection(db, 'schools'), where('id', '==', studentData.schoolId), limit(1)));
-        if (!schoolDoc.empty) {
-          setSchool(schoolDoc.docs[0].data());
+        // Fetch School Info - use getDoc because we have the ID and get is public
+        try {
+          const schoolRef = doc(db, 'schools', studentData.schoolId);
+          const schoolSnap = await getDoc(schoolRef);
+          if (schoolSnap.exists()) {
+            setSchool(schoolSnap.data());
+          }
+        } catch (err) {
+          console.warn('Could not fetch school info', err);
         }
 
         // Fetch Announcements 
