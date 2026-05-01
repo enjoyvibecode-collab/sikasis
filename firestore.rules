@@ -1,0 +1,87 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helper Primitives ---
+    function isSignedIn() { return request.auth != null; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    
+    function isSuperOwner() { 
+      return isSignedIn() && request.auth.token.email == 'enjoyvibecode@gmail.com'; 
+    }
+
+    function currentUser() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isKepalaSekolah(schoolId) { return isSignedIn() && (isSuperOwner() || (currentUser().schoolId == schoolId && currentUser().role == 'kepala_sekolah')); }
+    function isBendahara(schoolId) { return isSignedIn() && (isSuperOwner() || (currentUser().schoolId == schoolId && currentUser().role == 'bendahara')); }
+    function isTU(schoolId) { return isSignedIn() && (isSuperOwner() || (currentUser().schoolId == schoolId && currentUser().role == 'tu')); }
+    function belongsToSchool(schoolId) { return isSignedIn() && (isSuperOwner() || currentUser().schoolId == schoolId); }
+
+    // --- Match Blocks ---
+
+    // Audit Trail: Transactions are IMMUTABLE
+    match /transactions/{txId} {
+      allow get: if isSuperOwner() || belongsToSchool(resource.data.schoolId);
+      allow list: if isSuperOwner() || belongsToSchool(resource.data.schoolId); 
+      
+      allow update, delete: if false;
+
+      allow create: if isSignedIn() && (isSuperOwner() || (belongsToSchool(incoming().schoolId) && 
+                      incoming().executorId == request.auth.uid &&
+                      incoming().timestamp == request.time &&
+                      incoming().amount > 0));
+    }
+
+    match /schools/{schoolId} {
+      allow get: if true; 
+      allow list: if isSuperOwner();
+      allow create: if isSignedIn();
+      allow update: if isSuperOwner() || 
+                      (isKepalaSekolah(schoolId) && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'address'])) ||
+                      (isBendahara(schoolId) && incoming().diff(existing()).affectedKeys().hasOnly(['centralBalance']));
+    }
+
+    match /users/{userId} {
+      allow get: if isSignedIn() && (request.auth.uid == userId || belongsToSchool(resource.data.schoolId) || isSuperOwner());
+      allow list: if isSignedIn() && (
+        isSuperOwner() || 
+        (resource != null && belongsToSchool(resource.data.schoolId)) ||
+        (resource.data.inviteEmail == request.auth.token.email)
+      );
+      allow create: if isSignedIn() && (request.auth.uid == userId || isKepalaSekolah(incoming().schoolId) || isSuperOwner()); 
+      allow update: if isSuperOwner() || isKepalaSekolah(existing().schoolId) || (request.auth.uid == userId && incoming().diff(existing()).affectedKeys().hasOnly(['username', 'fullName']));
+      allow delete: if isSuperOwner() || isKepalaSekolah(existing().schoolId);
+    }
+
+    match /classes/{classId} {
+      allow read: if isSuperOwner() || belongsToSchool(resource.data.schoolId);
+      allow create: if isSuperOwner() || isKepalaSekolah(incoming().schoolId) || isBendahara(incoming().schoolId);
+      
+      allow update: if isSuperOwner() || (belongsToSchool(existing().schoolId) && 
+                      (isKepalaSekolah(existing().schoolId) || isBendahara(existing().schoolId) || isTU(existing().schoolId)));
+    }
+
+    match /students/{studentId} {
+      allow read: if isSuperOwner() || belongsToSchool(resource.data.schoolId) || true; // Keep true for lookup but prefer school check
+      allow create: if isSuperOwner() || isKepalaSekolah(incoming().schoolId) || isTU(incoming().schoolId) || isBendahara(incoming().schoolId);
+      
+      allow update: if isSuperOwner() || (belongsToSchool(existing().schoolId) && 
+                      (isTU(existing().schoolId) || isBendahara(existing().schoolId)));
+    }
+
+    match /tu_wallets/{walletId} {
+      allow read: if belongsToSchool(resource.data.schoolId) || isSuperOwner();
+      allow create, update: if belongsToSchool(incoming().schoolId) && 
+                               (isBendahara(incoming().schoolId) || isTU(incoming().schoolId)) &&
+                               getAfter(/databases/$(database)/documents/tu_wallets/$(walletId)).data.balance >= 0;
+    }
+  }
+}

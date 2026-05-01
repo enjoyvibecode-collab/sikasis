@@ -1,0 +1,92 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net - Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- Helper Primitives ---
+    function isSignedIn() { return request.auth != null; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    
+    // Getting current user record
+    function currentUser() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    // Roles
+    function isOwner() { return isSignedIn() && currentUser().role == 'owner'; }
+    function isKepalaSekolah(schoolId) { return isSignedIn() && currentUser().schoolId == schoolId && currentUser().role == 'kepala_sekolah'; }
+    function isBendahara(schoolId) { return isSignedIn() && currentUser().schoolId == schoolId && currentUser().role == 'bendahara'; }
+    function isTU(schoolId) { return isSignedIn() && currentUser().schoolId == schoolId && currentUser().role == 'tu'; }
+    function isSpecificTU(schoolId, year) { 
+      return isTU(schoolId) && currentUser().yearAssigned == year; 
+    }
+    function belongsToSchool(schoolId) { return isSignedIn() && currentUser().schoolId == schoolId; }
+
+    // --- Validation Blueprints ---
+    
+    function isValidSchool(data) {
+      return data.keys().hasAll(['name', 'status', 'createdAt', 'ownerEmail']) &&
+             data.keys().size() == 4 &&
+             data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+             data.status in ['pending', 'active', 'suspended'] &&
+             data.ownerEmail is string &&
+             data.createdAt is timestamp;
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['username', 'fullName', 'role', 'schoolId', 'status']) &&
+             data.role in ['owner', 'kepala_sekolah', 'bendahara', 'tu', 'bendahara_kelas'] &&
+             data.status in ['active', 'inactive'];
+    }
+
+    // --- Match Blocks ---
+
+    match /schools/{schoolId} {
+      allow get: if true; // Public for identification
+      allow list: if isOwner();
+      allow create: if isSignedIn() && isValidId(schoolId) && isValidSchool(incoming());
+      allow update: if isOwner() && (
+        incoming().diff(existing()).affectedKeys().hasOnly(['status'])
+      ) || (
+        isKepalaSekolah(schoolId) && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'address'])
+      );
+    }
+
+    match /users/{userId} {
+      allow get: if isSignedIn() && (request.auth.uid == userId || belongsToSchool(resource.data.schoolId));
+      allow list: if isSignedIn() && belongsToSchool(resource.data.schoolId);
+      allow create: if isSignedIn() && isValidId(userId) && isValidUser(incoming());
+      allow update: if isSignedIn() && (
+        (request.auth.uid == userId && incoming().diff(existing()).affectedKeys().hasOnly(['fullName', 'username'])) ||
+        (isKepalaSekolah(resource.data.schoolId) && incoming().diff(existing()).affectedKeys().hasOnly(['role', 'status', 'yearAssigned']))
+      );
+    }
+
+    match /classes/{classId} {
+      allow read: if belongsToSchool(resource.data.schoolId);
+      allow create: if (isKepalaSekolah(incoming().schoolId) || isBendahara(incoming().schoolId));
+      allow update: if (isKepalaSekolah(existing().schoolId) || isBendahara(existing().schoolId));
+    }
+
+    match /students/{studentId} {
+      allow get: if true; // Public view link uses student ID or NISN? NISN would be a query.
+      allow list: if belongsToSchool(resource.data.schoolId);
+      allow create, update: if belongsToSchool(incoming().schoolId) && (isTU(incoming().schoolId) || isBendahara(incoming().schoolId));
+    }
+
+    match /transactions/{txId} {
+      allow read: if belongsToSchool(resource.data.schoolId);
+      allow create: if belongsToSchool(incoming().schoolId); // More strict logic needed for real transactional integrity
+    }
+
+    match /tu_wallets/{walletId} {
+      allow read: if belongsToSchool(resource.data.schoolId);
+      allow create, update: if isBendahara(incoming().schoolId) || isKepalaSekolah(incoming().schoolId);
+    }
+  }
+}
