@@ -177,27 +177,79 @@ const OwnerSchools = () => {
   );
 };
 
-const OwnerSettings = () => (
-  <div className="p-8 max-w-2xl mx-auto text-center space-y-6">
-    <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto text-slate-400">
-      <Settings size={40} />
-    </div>
-    <div>
-      <h1 className="text-2xl font-bold">Pengaturan Sistem</h1>
-      <p className="text-slate-500">Konfigurasi global untuk aplikasi SiKasis.</p>
-    </div>
-    <Card className="p-8 text-left space-y-4">
-      <div className="flex items-center justify-between py-2 border-b">
-        <span>Maintenance Mode</span>
-        <div className="w-10 h-5 bg-slate-200 rounded-full"></div>
+const OwnerSettings = () => {
+  const [config, setConfig] = React.useState({ maintenanceMode: false, allowRegistrations: true });
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'system', 'config'), (docSnap) => {
+      if (docSnap.exists()) {
+        setConfig(docSnap.data() as any);
+      } else {
+        // Initialize if not exists
+        setDoc(doc(db, 'system', 'config'), { maintenanceMode: false, allowRegistrations: true });
+      }
+      setLoading(false);
+    });
+    return unsub;
+  }, []);
+
+  const toggleSetting = async (key: string, value: boolean) => {
+    try {
+      await updateDoc(doc(db, 'system', 'config'), {
+        [key]: !value
+      });
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  if (loading) return <div className="p-8 text-center text-slate-400">Loading Configuration...</div>;
+
+  return (
+    <div className="p-8 max-w-2xl mx-auto text-center space-y-6">
+      <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto text-slate-400">
+        <Settings size={40} />
       </div>
-      <div className="flex items-center justify-between py-2 border-b">
-        <span>Allow New Registrations</span>
-        <div className="w-10 h-5 bg-brand-teal rounded-full"></div>
+      <div>
+        <h1 className="text-2xl font-bold">Pengaturan Sistem</h1>
+        <p className="text-slate-500">Konfigurasi global untuk aplikasi SiKasis.</p>
       </div>
-    </Card>
-  </div>
-);
+      <Card className="p-8 text-left space-y-6">
+        <div className="flex items-center justify-between py-2">
+          <div>
+            <h4 className="font-bold text-slate-800">Maintenance Mode</h4>
+            <p className="text-xs text-slate-500">Matikan akses aplikasi untuk semua staf (kecuali Owner).</p>
+          </div>
+          <button 
+            onClick={() => toggleSetting('maintenanceMode', config.maintenanceMode)}
+            className={`w-12 h-6 rounded-full transition-colors relative ${config.maintenanceMode ? 'bg-rose-500' : 'bg-slate-200'}`}
+          >
+            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${config.maintenanceMode ? 'left-7' : 'left-1'}`} />
+          </button>
+        </div>
+        
+        <div className="flex items-center justify-between py-2 border-t pt-6">
+          <div>
+            <h4 className="font-bold text-slate-800">Allow New Registrations</h4>
+            <p className="text-xs text-slate-500">Izinkan atau blokir pendaftaran sekolah baru di halaman depan.</p>
+          </div>
+          <button 
+            onClick={() => toggleSetting('allowRegistrations', config.allowRegistrations)}
+            className={`w-12 h-6 rounded-full transition-colors relative ${config.allowRegistrations ? 'bg-brand-teal' : 'bg-slate-200'}`}
+          >
+            <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-transform ${config.allowRegistrations ? 'left-7' : 'left-1'}`} />
+          </button>
+        </div>
+      </Card>
+
+      <div className="p-4 bg-blue-50 text-blue-700 rounded-xl text-xs flex gap-3 items-start text-left">
+        <ShieldCheck size={20} className="shrink-0" />
+        <p><strong>Info Safety:</strong> Perubahan pada pengaturan ini berdampak langsung pada seluruh pengguna saat ini juga. Gunakan dengan bijak.</p>
+      </div>
+    </div>
+  );
+};
 const KepalaSekolahDashboard = () => {
   const { profile } = useAuth();
   const [stats, setStats] = React.useState({ staff: 0, students: 0, classes: 0 });

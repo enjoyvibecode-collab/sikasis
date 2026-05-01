@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, serverTimestamp, onSnapshot } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import { Button, Input, Card } from '../components/UI';
 import { Wallet, School, User, Mail, Lock, AlertCircle, CheckCircle2 } from 'lucide-react';
@@ -20,6 +20,15 @@ export default function RegisterSchool() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'system', 'config'), (snap) => {
+      if (snap.exists() && snap.data().allowRegistrations === false) {
+        navigate('/');
+      }
+    });
+    return unsub;
+  }, [navigate]);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();

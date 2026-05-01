@@ -11,11 +11,13 @@ import Landing from './pages/Landing';
 import Login from './pages/Login';
 import RegisterSchool from './pages/RegisterSchool';
 import Dashboard from './pages/Dashboard';
+import { Wallet, Lock } from 'lucide-react';
 import PublicStudentView from './pages/PublicStudentView';
 import { AnimatePresence } from 'motion/react';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
-  const { user, profile, loading, schoolActive } = useAuth();
+  const { user, profile, loading, schoolActive, maintenanceMode } = useAuth();
+  const isSuperOwner = user?.email === 'enjoyvibecode@gmail.com';
 
   if (loading) return (
     <div className="h-screen flex items-center justify-center bg-brand-cream">
@@ -27,6 +29,20 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   );
 
   if (!user) return <Navigate to="/login" replace />;
+
+  // Maintenance Mode Check (Except for Super Owner)
+  if (maintenanceMode && !isSuperOwner) {
+    return (
+      <div className="h-screen flex flex-col items-center justify-center p-6 text-center bg-brand-cream">
+        <div className="w-20 h-20 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mb-6">
+          <Lock size={40} />
+        </div>
+        <h1 className="text-3xl font-display font-bold text-slate-800 mb-2">Sistem Sedang Maintenance</h1>
+        <p className="text-slate-600 max-w-md">Mohon maaf, aplikasi SiKasis sedang dalam tahap pemeliharaan rutin. Silakan kembali beberapa saat lagi.</p>
+        <button onClick={() => auth.signOut()} className="mt-8 text-brand-teal font-bold hover:underline">Keluar (Logout)</button>
+      </div>
+    );
+  }
   
   // If user exists but profile is missing, it might be a new user or a sync error
   if (!profile) return (

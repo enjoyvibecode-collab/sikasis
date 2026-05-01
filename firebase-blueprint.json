@@ -84,6 +84,15 @@
         "reversalOf": { "type": "string", "description": "If this is a correction of a previous TX" }
       },
       "required": ["schoolId", "type", "amount", "executorId", "timestamp"]
+    },
+    "system_config": {
+      "title": "System Config",
+      "description": "Global settings for the platform.",
+      "type": "object",
+      "properties": {
+        "maintenanceMode": { "type": "boolean" },
+        "allowRegistrations": { "type": "boolean" }
+      }
     }
   },
   "firestore": {
@@ -92,6 +101,7 @@
     "/classes/{classId}": { "schema": "class", "description": "Class balance tracking" },
     "/students/{studentId}": { "schema": "student", "description": "Student identity and savings ledger" },
     "/tu_wallets/{walletId}": { "schema": "tu_wallet", "description": "TU physical cash tracking (ID: schoolId_TUuid)" },
-    "/transactions/{transactionId}": { "schema": "transaction", "description": "High-integrity immutable transaction logs" }
+    "/transactions/{transactionId}": { "schema": "transaction", "description": "High-integrity immutable transaction logs" },
+    "/system/config": { "schema": "system_config", "description": "Global application configuration" }
   }
 }

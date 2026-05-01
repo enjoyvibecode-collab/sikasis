@@ -25,7 +25,19 @@ service cloud.firestore {
     function isTU(schoolId) { return isSignedIn() && (isSuperOwner() || (currentUser().schoolId == schoolId && currentUser().role == 'tu')); }
     function belongsToSchool(schoolId) { return isSignedIn() && (isSuperOwner() || currentUser().schoolId == schoolId); }
 
+    function isValidSystemConfig(data) {
+      return data.keys().hasAll(['maintenanceMode', 'allowRegistrations']) && 
+             data.keys().size() == 2 &&
+             data.maintenanceMode is bool &&
+             data.allowRegistrations is bool;
+    }
+
     // --- Match Blocks ---
+
+    match /system/config {
+      allow read: if true;
+      allow write: if isSuperOwner() && isValidSystemConfig(incoming());
+    }
 
     // Audit Trail: Transactions are IMMUTABLE
     match /transactions/{txId} {

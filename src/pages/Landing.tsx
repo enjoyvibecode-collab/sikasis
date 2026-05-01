@@ -1,10 +1,23 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '../components/UI';
-import { Wallet, ShieldCheck, Users, TrendingUp, ArrowRight } from 'lucide-react';
+import { Wallet, ShieldCheck, Users, TrendingUp, ArrowRight, Lock } from 'lucide-react';
 import { motion } from 'motion/react';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
 export default function Landing() {
+  const [allowReg, setAllowReg] = useState(true);
+
+  useEffect(() => {
+    const unsub = onSnapshot(doc(db, 'system', 'config'), (snap) => {
+      if (snap.exists()) {
+        setAllowReg(snap.data().allowRegistrations ?? true);
+      }
+    });
+    return unsub;
+  }, []);
+
   return (
     <div className="min-h-screen bg-brand-cream overflow-x-hidden">
       {/* Navbar */}
@@ -19,9 +32,15 @@ export default function Landing() {
           <Link to="/login">
             <Button variant="ghost">Masuk</Button>
           </Link>
-          <Link to="/register-school">
-            <Button>Daftar Sekolah</Button>
-          </Link>
+          {allowReg ? (
+            <Link to="/register-school">
+              <Button>Daftar Sekolah</Button>
+            </Link>
+          ) : (
+            <div className="px-4 py-2 bg-slate-100 text-slate-400 rounded-xl text-sm font-bold flex items-center gap-2">
+              <Lock size={14} /> Pendaftaran Ditutup
+            </div>
+          )}
         </div>
       </nav>
 
@@ -43,11 +62,17 @@ export default function Landing() {
             Platform SaaS untuk manajemen keuangan sekolah yang transparan, aman, dan mudah digunakan oleh Kepala Sekolah, Tata Usaha, hingga Siswa.
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <Link to="/register-school">
-              <Button size="lg" className="w-full sm:w-auto gap-2">
-                Mulai Gunakan SiKasis <ArrowRight size={20} />
-              </Button>
-            </Link>
+            {allowReg ? (
+              <Link to="/register-school">
+                <Button size="lg" className="w-full sm:w-auto gap-2">
+                  Mulai Gunakan SiKasis <ArrowRight size={20} />
+                </Button>
+              </Link>
+            ) : (
+              <div className="p-4 bg-slate-100 rounded-2xl text-slate-500 font-bold flex items-center justify-center gap-2 border-2 border-dashed border-slate-200">
+                <Lock size={20} /> Pendaftaran Sekolah Baru Sedang Ditutup
+              </div>
+            )}
             <Link to="/student">
               <Button variant="outline" size="lg" className="w-full sm:w-auto">
                 Cek Saldo Siswa
