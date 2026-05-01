@@ -11,6 +11,7 @@ export default function StaffManagement() {
   const [staff, setStaff] = useState<UserProfile[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [editingStaffId, setEditingStaffId] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     email: '',
     fullName: '',
@@ -19,6 +20,7 @@ export default function StaffManagement() {
     authorizedGrades: [] as string[]
   });
   const [classes, setClasses] = useState<any[]>([]);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const toggleGrade = (grade: string) => {
     setFormData(prev => ({
@@ -49,23 +51,36 @@ export default function StaffManagement() {
     e.preventDefault();
     setLoading(true);
     try {
-      const username = formData.email.split('@')[0];
-      const newStaffId = `staff_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`; 
-      
-      await setDoc(doc(db, 'users', newStaffId), {
-        username,
-        fullName: formData.fullName,
-        role: formData.role,
-        schoolId: profile?.schoolId,
-        classId: formData.classId,
-        authorizedGrades: formData.authorizedGrades,
-        status: 'active',
-        inviteEmail: formData.email 
-      });
+      if (editingStaffId) {
+        // UPDATE MODE
+        await setDoc(doc(db, 'users', editingStaffId), {
+          fullName: formData.fullName,
+          role: formData.role,
+          classId: formData.classId || null,
+          authorizedGrades: formData.authorizedGrades,
+        }, { merge: true });
+        alert('Data staf berhasil diperbaharui.');
+      } else {
+        // CREATE MODE
+        const username = formData.email.split('@')[0];
+        const newStaffId = `staff_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`; 
+        
+        await setDoc(doc(db, 'users', newStaffId), {
+          username,
+          fullName: formData.fullName,
+          role: formData.role,
+          schoolId: profile?.schoolId,
+          classId: formData.classId || null,
+          authorizedGrades: formData.authorizedGrades,
+          status: 'active',
+          inviteEmail: formData.email 
+        });
+        alert('Staf berhasil diundang.');
+      }
       
       setIsModalOpen(false);
+      setEditingStaffId(null);
       setFormData({ email: '', fullName: '', role: 'tu', classId: '', authorizedGrades: [] });
-      alert('Staf berhasil diundang.');
     } catch (err: any) {
       console.error(err);
       alert('Gagal menambah staf: ' + err.message);
@@ -135,14 +150,34 @@ export default function StaffManagement() {
             </div>
 
             {member.uid !== profile?.uid && member.role !== 'owner' && (
-               <Button 
-                variant="outline" 
-                size="sm" 
-                className="w-full border-rose-100 text-rose-500 hover:bg-rose-50 hover:border-rose-200"
-                onClick={() => setDeleteId(member.id)}
-               >
-                <Trash2 size={14} className="mr-2" /> Hapus Akses
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="flex-1 text-slate-600 hover:bg-slate-50"
+                  onClick={() => {
+                    setFormData({
+                      email: member.inviteEmail || '',
+                      fullName: member.fullName,
+                      role: member.role,
+                      classId: member.classId,
+                      authorizedGrades: member.authorizedGrades || []
+                    });
+                    setEditingStaffId(member.id);
+                    setIsModalOpen(true);
+                  }}
+                >
+                  Edit Akses
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="px-3 border-rose-100 text-rose-500 hover:bg-rose-50 hover:border-rose-200"
+                  onClick={() => setDeleteId(member.id)}
+                >
+                  <Trash2 size={14} />
+                </Button>
+              </div>
             )}
           </Card>
         ))}
@@ -163,18 +198,28 @@ export default function StaffManagement() {
         </div>
       </Modal>
 
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Undang Staf Baru">
+      <Modal 
+        isOpen={isModalOpen} 
+        onClose={() => {
+          setIsModalOpen(false);
+          setEditingStaffId(null);
+          setFormData({ email: '', fullName: '', role: 'tu', classId: '', authorizedGrades: [] });
+        }} 
+        title={editingStaffId ? "Edit Wewenang Staf" : "Undang Staf Baru"}
+      >
         <form onSubmit={handleAddStaff} className="space-y-4">
-          <div>
-            <label className="text-sm font-bold text-slate-700 mb-1 block">Alamat Email (Akun Google)</label>
-            <Input 
-              type="email"
-              placeholder="nama@gmail.com" 
-              required
-              value={formData.email}
-              onChange={e => setFormData({...formData, email: e.target.value})}
-            />
-          </div>
+          {!editingStaffId && (
+            <div>
+              <label className="text-sm font-bold text-slate-700 mb-1 block">Alamat Email (Akun Google)</label>
+              <Input 
+                type="email"
+                placeholder="nama@gmail.com" 
+                required
+                value={formData.email}
+                onChange={e => setFormData({...formData, email: e.target.value})}
+              />
+            </div>
+          )}
           <div>
             <label className="text-sm font-bold text-slate-700 mb-1 block">Nama Lengkap</label>
             <Input 
