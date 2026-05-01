@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { collection, query, where, onSnapshot, doc, setDoc, deleteDoc, getDocs } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
 import { Card, Button, Input, Modal } from '../components/UI';
 import { School as SchoolIcon, Plus, Trash2, Users } from 'lucide-react';
@@ -18,6 +18,8 @@ export default function ClassManagement() {
     const q = query(collection(db, 'classes'), where('schoolId', '==', profile.schoolId));
     const unsub = onSnapshot(q, (snapshot) => {
       setClasses(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as ClassData)));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'classes');
     });
     return unsub;
   }, [profile?.schoolId]);
@@ -38,8 +40,7 @@ export default function ClassManagement() {
       setIsModalOpen(false);
       setNewClassName('');
     } catch (err) {
-      console.error(err);
-      alert('Gagal menambah kelas.');
+      handleFirestoreError(err, OperationType.CREATE, 'classes');
     } finally {
       setLoading(false);
     }
@@ -47,7 +48,11 @@ export default function ClassManagement() {
 
   const removeClass = async (id: string, name: string) => {
     if (!confirm(`Hapus kelas ${name}? Data siswa di kelas ini mungkin akan terpengaruh.`)) return;
-    await deleteDoc(doc(db, 'classes', id));
+    try {
+      await deleteDoc(doc(db, 'classes', id));
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, `classes/${id}`);
+    }
   };
 
   return (

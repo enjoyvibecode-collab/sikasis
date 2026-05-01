@@ -79,6 +79,7 @@ service cloud.firestore {
       
       allow update: if isSuperOwner() || (belongsToSchool(existing().schoolId) && 
                       (isKepalaSekolah(existing().schoolId) || isBendahara(existing().schoolId) || isTU(existing().schoolId)));
+      allow delete: if isSuperOwner() || isKepalaSekolah(existing().schoolId);
     }
 
     match /students/{studentId} {
@@ -86,7 +87,8 @@ service cloud.firestore {
       allow create: if isSuperOwner() || isKepalaSekolah(incoming().schoolId) || isTU(incoming().schoolId) || isBendahara(incoming().schoolId);
       
       allow update: if isSuperOwner() || (belongsToSchool(existing().schoolId) && 
-                      (isTU(existing().schoolId) || isBendahara(existing().schoolId)));
+                      (isKepalaSekolah(existing().schoolId) || isTU(existing().schoolId) || isBendahara(existing().schoolId)));
+      allow delete: if isSuperOwner() || isKepalaSekolah(existing().schoolId);
     }
 
     match /tu_wallets/{walletId} {

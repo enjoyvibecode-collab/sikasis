@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { collection, query, where, onSnapshot, writeBatch, doc, getDocs, setDoc, deleteDoc } from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
 import { Card, Button, Input, Modal } from '../components/UI';
 import { UserPlus, Download, Upload, Trash2, Search, FileDown } from 'lucide-react';
@@ -31,11 +31,15 @@ export default function StudentManagement() {
 
     const unsubStudents = onSnapshot(studentsQ, (snapshot) => {
       setStudents(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Student)));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'students');
     });
 
     const classesQ = query(collection(db, 'classes'), where('schoolId', '==', profile.schoolId));
     const unsubClasses = onSnapshot(classesQ, (snapshot) => {
       setClasses(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as ClassData)));
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'classes');
     });
 
     return () => {
@@ -120,8 +124,7 @@ export default function StudentManagement() {
           alert(msg);
           e.target.value = '';
         } catch (err) {
-          console.error(err);
-          alert('Gagal mengimpor data. Periksa izin atau format file Anda.');
+          handleFirestoreError(err, OperationType.WRITE, 'Batch Student Import');
         } finally {
           setLoading(false);
         }
@@ -145,7 +148,7 @@ export default function StudentManagement() {
       setIsModalOpen(false);
       setFormData({ fullName: '', nisn: '', whatsappStudent: '', whatsappParent: '', classId: '' });
     } catch (err) {
-      console.error(err);
+      handleFirestoreError(err, OperationType.CREATE, `students/${formData.nisn}`);
     } finally {
       setLoading(false);
     }
@@ -156,7 +159,7 @@ export default function StudentManagement() {
     try {
       await deleteDoc(doc(db, 'students', id));
     } catch (err) {
-      alert('Gagal menghapus siswa. Periksa izin Firestore.');
+      handleFirestoreError(err, OperationType.DELETE, `students/${id}`);
     }
   };
 
