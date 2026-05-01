@@ -19,22 +19,24 @@ export interface School {
 }
 
 export interface UserProfile {
+  id: string; // Document ID
   uid: string;
   username: string;
   fullName: string;
   role: UserRole;
   schoolId: string;
-  yearAssigned?: number; // For TU (7, 8, 9)
+  yearAssigned?: number;
   status: 'active' | 'inactive';
+  inviteEmail?: string | null;
+  classId?: string;
 }
 
-export interface Class {
+export interface ClassData {
   id: string;
   schoolId: string;
-  year: number;
   name: string;
-  bendaharaKelasId?: string;
   balanceCash: number;
+  status?: string;
 }
 
 export interface TUWallet {
@@ -53,6 +55,8 @@ export interface Student {
   nisn: string;
   fullName: string;
   balanceSavings: number;
+  whatsappStudent?: string;
+  whatsappParent?: string;
 }
 
 export interface Transaction {

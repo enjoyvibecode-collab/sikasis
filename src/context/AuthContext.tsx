@@ -35,15 +35,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           let profileDoc = await getDoc(userDocRef);
 
           if (!profileDoc.exists() && authUser.email) {
-            const inviteQuery = query(collection(db, 'users'), where('inviteEmail', '==', authUser.email));
-            const inviteSnap = await getDocs(inviteQuery);
-            
-            if (!inviteSnap.empty) {
-              const inviteDoc = inviteSnap.docs[0];
-              const inviteData = inviteDoc.data();
-              await setDoc(userDocRef, { ...inviteData, inviteEmail: null, status: 'active' });
-              await deleteDoc(inviteDoc.ref);
-              profileDoc = await getDoc(userDocRef);
+            console.log("Profile not found, checking for invites...");
+            try {
+              const inviteQuery = query(collection(db, 'users'), where('inviteEmail', '==', authUser.email));
+              const inviteSnap = await getDocs(inviteQuery);
+              
+              if (!inviteSnap.empty) {
+                console.log("Invite found, claiming...");
+                const inviteDoc = inviteSnap.docs[0];
+                const inviteData = inviteDoc.data();
+                
+                // Use UID as document ID for the final profile
+                await setDoc(userDocRef, { 
+                  ...inviteData, 
+                  inviteEmail: null, 
+                  status: 'active',
+                  id: authUser.uid 
+                });
+                
+                // Remove the invitation document
+                await deleteDoc(inviteDoc.ref);
+                profileDoc = await getDoc(userDocRef);
+                console.log("Invite claimed successfully!");
+              }
+            } catch (err) {
+              console.error("Error during invite claim:", err);
             }
           }
 

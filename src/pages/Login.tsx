@@ -38,11 +38,14 @@ export default function Login() {
       await signInWithPopup(auth, googleProvider);
       navigate('/dashboard');
     } catch (err: any) {
-      console.error(err);
+      console.log('Login error code:', err.code);
       if (err.code === 'auth/popup-blocked') {
         setError('Popup terblokir oleh browser. Harap izinkan popup untuk masuk.');
+      } else if (err.code === 'auth/popup-closed-by-user') {
+        // User closed the window, no need for an aggressive error message
+        setError('Proses masuk dibatalkan.');
       } else {
-        setError('Gagal masuk dengan Google.');
+        setError(`Gagal masuk dengan Google: ${err.message || err.code || 'Terjadi kesalahan'}`);
       }
     } finally {
       setLoading(false);

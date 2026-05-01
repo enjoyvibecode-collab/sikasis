@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, onSnapshot, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, setDoc, deleteDoc, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
 import { Card, Button, Input, Modal } from '../components/UI';
@@ -65,8 +65,19 @@ export default function StaffManagement() {
   };
 
   const removeStaff = async (id: string) => {
-    if (!confirm('Hapus staf ini?')) return;
-    await deleteDoc(doc(db, 'users', id));
+    console.log('Attempting to remove staff with ID:', id);
+    if (!confirm('Hapus staf ini? Semua akses untuk akun ini akan dicabut secara permanen.')) return;
+    setLoading(true);
+    try {
+      console.log('Sending delete request to Firestore for ID:', id);
+      await deleteDoc(doc(db, 'users', id));
+      alert('Akses berhasil dihapus!');
+    } catch (err: any) {
+      console.error('Delete error:', err);
+      alert(`Gagal menghapus: ${err.message || 'Periksa izin database'}`);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
