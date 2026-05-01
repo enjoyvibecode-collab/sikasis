@@ -217,7 +217,12 @@ export default function StudentManagement() {
                 <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Tabungan</p>
                 <p className="font-display font-bold text-brand-teal">Rp {student.balanceSavings.toLocaleString('id-ID')}</p>
               </div>
-              <Button variant="outline" size="sm" className="h-9 w-9 p-0 text-slate-400 hover:text-rose-500 border-none">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="h-9 w-9 p-0 text-slate-400 hover:text-rose-500 border-none"
+                onClick={() => removeStudent(student.id)}
+              >
                 <Trash2 size={18} />
               </Button>
             </div>
