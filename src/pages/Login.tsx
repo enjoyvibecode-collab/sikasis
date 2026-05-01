@@ -44,6 +44,10 @@ export default function Login() {
       } else if (err.code === 'auth/popup-closed-by-user') {
         // User closed the window, no need for an aggressive error message
         setError('Proses masuk dibatalkan.');
+      } else if (err.code === 'auth/unauthorized-domain') {
+        setError(`Domain ini (${window.location.hostname}) belum diizinkan. Harap tambahkan domain ini ke daftar "Authorized domains" di Firebase Console > Authentication > Settings.`);
+      } else if (err.code === 'auth/invalid-credential') {
+        setError('Kredensial tidak valid. Ini biasanya terjadi jika konfigurasi Google Auth di Firebase Console belum lengkap atau domain belum didaftarkan.');
       } else {
         setError(`Gagal masuk dengan Google: ${err.message || err.code || 'Terjadi kesalahan'}`);
       }
