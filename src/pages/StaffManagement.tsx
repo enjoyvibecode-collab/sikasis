@@ -38,7 +38,36 @@ export default function StaffManagement() {
       where('schoolId', '==', profile.schoolId)
     );
     const unsub = onSnapshot(q, (snapshot) => {
-      setStaff(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as any)));
+      const allUsers = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as any));
+      
+      // Filter out current user (headmaster doesn't need to see themselves in staff list)
+      const filteredStaff = allUsers.filter(u => u.id !== profile?.id);
+      
+      // Deduplicate by email (prefer real user UID over staff_ placeholder)
+      const staffMap = new Map<string, any>();
+      filteredStaff.forEach(u => {
+        const email = (u.inviteEmail || u.email || (u.username ? `${u.username}@school.com` : '')).toLowerCase();
+        if (!email) return;
+
+        const existing = staffMap.get(email);
+        
+        // Logic: If we find a real user (not starting with staff_), always use it.
+        // If we only have staff_ placeholder, use that until real user appears.
+        if (!existing) {
+          staffMap.set(email, u);
+        } else {
+          const existingIsStaff = existing.id.startsWith('staff_');
+          const currentIsStaff = u.id.startsWith('staff_');
+          
+          if (existingIsStaff && !currentIsStaff) {
+            // Replace placeholder with real active user
+            staffMap.set(email, u);
+          }
+          // Otherwise, if existing is already active, keep it.
+        }
+      });
+
+      setStaff(Array.from(staffMap.values()));
     });
 
     const cq = query(collection(db, 'classes'), where('schoolId', '==', profile.schoolId));
@@ -128,15 +157,22 @@ export default function StaffManagement() {
               }`}>
                 {member.role === 'bendahara' ? <ShieldCheck size={24} /> : <Shield size={24} />}
               </div>
-              <div>
-                <h3 className="font-bold text-slate-800">{member.fullName}</h3>
+              <div className="flex-1">
+                <div className="flex justify-between items-start">
+                  <h3 className="font-bold text-slate-800">{member.fullName}</h3>
+                  {member.id.startsWith('staff_') ? (
+                    <span className="text-[10px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded-full border border-amber-100 font-bold">UNDANGAN</span>
+                  ) : (
+                    <span className="text-[10px] bg-emerald-50 text-emerald-600 px-2 py-0.5 rounded-full border border-emerald-100 font-bold">AKTIF</span>
+                  )}
+                </div>
                 <p className="text-xs font-bold uppercase text-slate-400 tracking-widest">{member.role.replace('_', ' ')}</p>
               </div>
             </div>
 
             <div className="space-y-2 mb-6">
               <div className="flex items-center gap-2 text-sm text-slate-500">
-                <Mail size={14} /> <span className="truncate">{member.inviteEmail || member.username + '@school.com'}</span>
+                <Mail size={14} /> <span className="truncate">{member.email || member.inviteEmail || member.username + '@school.com'}</span>
               </div>
               {member.authorizedGrades && member.authorizedGrades.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-2">
@@ -157,7 +193,7 @@ export default function StaffManagement() {
                   className="flex-1 text-slate-600 hover:bg-slate-50 font-bold text-[10px] uppercase tracking-wider"
                   onClick={() => {
                     setFormData({
-                      email: member.inviteEmail || '',
+                      email: member.email || member.inviteEmail || '',
                       fullName: member.fullName,
                       role: member.role,
                       classId: member.classId || '',
@@ -174,6 +210,7 @@ export default function StaffManagement() {
                   size="sm" 
                   className="px-3 border-rose-100 text-rose-500 hover:bg-rose-50 hover:border-rose-200"
                   onClick={() => setDeleteId(member.id)}
+                  title="Hapus / Cabut Akses"
                 >
                   <Trash2 size={14} />
                 </Button>
@@ -181,6 +218,12 @@ export default function StaffManagement() {
             )}
           </Card>
         ))}
+      </div>
+
+      <div className="mt-8 p-4 bg-blue-50 border border-blue-100 rounded-xl">
+        <p className="text-xs text-blue-700 leading-relaxed">
+          <strong>Tip Manajemen:</strong> Jika ada staf dengan status <span className="font-bold underline text-amber-600">UNDANGAN</span> yang datanya sama dengan status <span className="font-bold underline text-emerald-600">AKTIF</span>, Anda bisa menghapus data "Undangan" tersebut agar daftar staf tetap rapi. Akun aktif adalah akun yang sudah berhasil login menggunakan Google/Belajar.id.
+        </p>
       </div>
 
       {/* Modal Hapus Konfirmasi */}
