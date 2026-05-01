@@ -1,10 +1,10 @@
 export type UserRole = 'owner' | 'kepala_sekolah' | 'bendahara' | 'tu' | 'bendahara_kelas' | 'siswa';
 
 export type TransactionType = 
-  | 'TABUNGAN_SETOR' 
-  | 'TABUNGAN_TARIK' 
-  | 'KAS_KELAS_SETOR' 
-  | 'KAS_KELAS_TARIK' 
+  | 'SETOR_TABUNGAN' 
+  | 'TARIK_TABUNGAN' 
+  | 'SETOR_KAS_KELAS' 
+  | 'TARIK_KAS_KELAS' 
   | 'MODAL_TU_MASUK' 
   | 'MODAL_TU_KEMBALI';
 

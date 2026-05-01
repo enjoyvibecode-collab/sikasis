@@ -61,6 +61,7 @@ interface TransactionPayload {
   studentId?: string;
   classId?: string;
   tuId?: string;
+  entityName?: string;
   notes?: string;
 }
 
@@ -83,7 +84,7 @@ export async function executeAtomicTransaction(payload: TransactionPayload) {
   const walletRef = doc(db, 'tu_wallets', walletId);
 
   switch (payload.type) {
-    case 'TABUNGAN_SETOR':
+    case 'SETOR_TABUNGAN':
       if (!payload.studentId) throw new Error("Missing Student ID");
       batch.update(doc(db, 'students', payload.studentId), {
         balanceSavings: increment(payload.amount)
@@ -96,7 +97,7 @@ export async function executeAtomicTransaction(payload: TransactionPayload) {
       }, { merge: true });
       break;
 
-    case 'TABUNGAN_TARIK':
+    case 'TARIK_TABUNGAN':
       if (!payload.studentId) throw new Error("Missing Student ID");
       batch.update(doc(db, 'students', payload.studentId), {
         balanceSavings: increment(-payload.amount)
@@ -109,7 +110,7 @@ export async function executeAtomicTransaction(payload: TransactionPayload) {
       }, { merge: true });
       break;
 
-    case 'KAS_KELAS_SETOR':
+    case 'SETOR_KAS_KELAS':
       if (!payload.classId) throw new Error("Missing Class ID");
       batch.update(doc(db, 'classes', payload.classId), {
         balanceCash: increment(payload.amount)
@@ -122,7 +123,7 @@ export async function executeAtomicTransaction(payload: TransactionPayload) {
       }, { merge: true });
       break;
 
-    case 'KAS_KELAS_TARIK':
+    case 'TARIK_KAS_KELAS':
       if (!payload.classId) throw new Error("Missing Class ID");
       batch.update(doc(db, 'classes', payload.classId), {
         balanceCash: increment(-payload.amount)

@@ -17,14 +17,29 @@ import {
   Clock,
   Plus,
   Send,
-  ShieldCheck
+  ShieldCheck,
+  Minus
 } from 'lucide-react';
 import { Button, Modal, Input } from '../components/UI';
 import { auth, db } from '../lib/firebase';
 import { motion, AnimatePresence } from 'motion/react';
-import { collection, query, onSnapshot, updateDoc, doc, where, getDocs, getDoc, setDoc, writeBatch } from 'firebase/firestore';
+import { 
+  collection, 
+  query, 
+  onSnapshot, 
+  updateDoc, 
+  doc, 
+  where, 
+  getDocs, 
+  getDoc, 
+  setDoc, 
+  writeBatch,
+  orderBy,
+  limit 
+} from 'firebase/firestore';
 import { Card } from '../components/UI';
-import type { School } from '../types';
+import type { School, Student, ClassData } from '../types';
+import { handleFirestoreError, OperationType, executeAtomicTransaction } from '../lib/firebase';
 
 import StaffManagement from './StaffManagement';
 import StudentManagement from './StudentManagement';
@@ -254,76 +269,155 @@ const OwnerSettings = () => {
 };
 const KepalaSekolahDashboard = () => {
   const { profile } = useAuth();
-  const [stats, setStats] = React.useState({ staff: 0, students: 0, classes: 0 });
+  const [stats, setStats] = React.useState({ staff: 0, students: 0, classes: 0, totalSavings: 0, totalClassCash: 0 });
+  const [recentTxs, setRecentTxs] = React.useState<any[]>([]);
 
   React.useEffect(() => {
     if (!profile?.schoolId) return;
     
     // Fetch summary stats
-    const fetchStats = async () => {
-      const staffQ = query(collection(db, 'users'), where('schoolId', '==', profile.schoolId));
-      const studentQ = query(collection(db, 'students'), where('schoolId', '==', profile.schoolId));
-      const classQ = query(collection(db, 'classes'), where('schoolId', '==', profile.schoolId));
-      
-      const [staffSnap, studentSnap, classSnap] = await Promise.all([
-        getDocs(staffQ), getDocs(studentQ), getDocs(classQ)
-      ]);
-      
-      setStats({
-        staff: staffSnap.size,
-        students: studentSnap.size,
-        classes: classSnap.size
-      });
+    const staffQ = query(collection(db, 'users'), where('schoolId', '==', profile.schoolId));
+    const studentQ = query(collection(db, 'students'), where('schoolId', '==', profile.schoolId));
+    const classQ = query(collection(db, 'classes'), where('schoolId', '==', profile.schoolId));
+    
+    const unsubStaff = onSnapshot(staffQ, (snap) => {
+      setStats(prev => ({ ...prev, staff: snap.size }));
+    });
+
+    const unsubStudents = onSnapshot(studentQ, (snap) => {
+      const total = snap.docs.reduce((acc, d) => acc + (d.data().balanceSavings || 0), 0);
+      setStats(prev => ({ ...prev, students: snap.size, totalSavings: total }));
+    });
+
+    const unsubClasses = onSnapshot(classQ, (snap) => {
+      const total = snap.docs.reduce((acc, d) => acc + (d.data().balanceCash || 0), 0);
+      setStats(prev => ({ ...prev, classes: snap.size, totalClassCash: total }));
+    });
+
+    // Recent Transactions
+    const txQ = query(
+      collection(db, 'transactions'), 
+      where('schoolId', '==', profile.schoolId),
+      orderBy('timestamp', 'desc'),
+      limit(5)
+    );
+    const unsubTx = onSnapshot(txQ, (snap) => {
+      setRecentTxs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+
+    return () => {
+      unsubStaff();
+      unsubStudents();
+      unsubClasses();
+      unsubTx();
     };
-    fetchStats();
   }, [profile?.schoolId]);
 
   return (
     <div className="p-4 md:p-8 space-y-8">
-      <div>
-        <h1 className="text-2xl md:text-3xl font-bold text-slate-800">Halo, {profile?.fullName}</h1>
-        <p className="text-slate-500 text-sm">Selamat datang di Panel Kendali Kepala Sekolah.</p>
+      <div className="flex justify-between items-start">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-slate-800">Halo, {profile?.fullName}</h1>
+          <p className="text-slate-500 text-sm italic">"Memimpin dengan integritas, mengelola dengan transparan."</p>
+        </div>
+        <div className="text-right hidden md:block">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status Sekolah</p>
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold">
+            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+            SISTEM AKTIF
+          </span>
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6">
-        <StatItem icon={<Users className="text-blue-600" />} label="Total Staf" value={stats.staff} color="bg-blue-50" />
-        <StatItem icon={<UserCircle className="text-emerald-600" />} label="Siswa Terdaftar" value={stats.students} color="bg-emerald-50" />
-        <StatItem icon={<SchoolIcon className="text-purple-600" />} label="Total Kelas" value={stats.classes} color="bg-purple-50" />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
+        <StatItem icon={<Users size={20} className="text-blue-600" />} label="Total Staf" value={stats.staff} color="bg-blue-50" />
+        <StatItem icon={<UserCircle size={20} className="text-emerald-600" />} label="Siswa" value={stats.students} color="bg-emerald-50" />
+        <StatItem icon={<Wallet size={20} className="text-brand-teal" />} label="Tabungan Siswa" value={stats.totalSavings} color="bg-teal-50" isCurrency />
+        <StatItem icon={<Plus size={20} className="text-purple-600" />} label="Kas Kelas" value={stats.totalClassCash} color="bg-purple-50" isCurrency />
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
-        <Card className="p-6">
-          <h3 className="font-bold mb-4 flex items-center gap-2"><Users size={18} /> Kelola Pengguna</h3>
-          <p className="text-sm text-slate-500 mb-6">Tambahkan Bendahara, TU, atau Wali Kelas untuk membantu operasional.</p>
-          <Link to="staff">
-            <Button className="w-full">Buka Manajemen Staf</Button>
-          </Link>
-        </Card>
-        <Card className="p-6">
-          <h3 className="font-bold mb-4 flex items-center gap-2"><UserCircle size={18} /> Data Siswa</h3>
-          <p className="text-sm text-slate-500 mb-6">Daftarkan siswa secara manual atau melalui impor file Excel massal.</p>
-          <Link to="students">
-            <Button className="w-full" variant="outline">Buka Manajemen Siswa</Button>
-          </Link>
-        </Card>
+      <div className="grid lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 space-y-6">
+          <Card className="p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="font-bold flex items-center gap-2"><History size={18} className="text-slate-400" /> Aktifitas Finansial Terbaru</h3>
+              <Link to="transactions" className="text-xs font-bold text-brand-teal hover:underline uppercase tracking-wider">Lihat Semua</Link>
+            </div>
+            
+            <div className="space-y-4">
+              {recentTxs.map(tx => (
+                <div key={tx.id} className="flex items-center justify-between py-3 border-b border-slate-50 last:border-0 group">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-[10px] ${
+                      tx.type.includes('SETOR') ? 'bg-emerald-50 text-emerald-600' : 'bg-rose-50 text-rose-600'
+                    }`}>
+                      {tx.type.includes('SETOR') ? <Plus size={14} /> : <Minus size={14} />}
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-slate-700 truncate max-w-[150px]">{tx.entityName || tx.description || tx.type}</p>
+                      <p className="text-[10px] text-slate-400 uppercase tracking-tighter">
+                        {tx.type.replace(/_/g, ' ')} • {tx.timestamp?.toDate ? tx.timestamp.toDate().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '...'}
+                      </p>
+                    </div>
+                  </div>
+                  <p className={`text-sm font-bold ${tx.type.includes('SETOR') ? 'text-emerald-600' : 'text-rose-600'}`}>
+                    {tx.type.includes('SETOR') ? '+' : '-'} {tx.amount.toLocaleString('id-ID')}
+                  </p>
+                </div>
+              ))}
+              {recentTxs.length === 0 && (
+                <div className="py-10 text-center opacity-30 italic text-sm">Belum ada transaksi hari ini</div>
+              )}
+            </div>
+          </Card>
+        </div>
+
+        <div className="space-y-6">
+          <Card className="p-6 bg-slate-900 text-white border-none">
+            <h4 className="font-bold mb-4 flex items-center gap-2"><ShieldCheck size={18} className="text-brand-teal" /> Akses Cepat</h4>
+            <div className="space-y-3">
+              <Link to="staff" className="flex items-center justify-between p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors group">
+                <span className="text-sm font-medium text-slate-300 group-hover:text-white">Manajemen Staf</span>
+                <ChevronRight size={16} className="text-white/20" />
+              </Link>
+              <Link to="students" className="flex items-center justify-between p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors group">
+                <span className="text-sm font-medium text-slate-300 group-hover:text-white">Data Siswa</span>
+                <ChevronRight size={16} className="text-white/20" />
+              </Link>
+              <Link to="classes" className="flex items-center justify-between p-3 rounded-xl bg-white/5 hover:bg-white/10 transition-colors group">
+                <span className="text-sm font-medium text-slate-300 group-hover:text-white">Manajemen Kelas</span>
+                <ChevronRight size={16} className="text-white/20" />
+              </Link>
+            </div>
+          </Card>
+          
+          <div className="p-6 bg-brand-sand/30 rounded-3xl border border-brand-sand/50">
+            <p className="text-xs text-slate-500 leading-relaxed font-medium italic">
+              "Gunakan panel ini untuk mengaudit aliran dana masuk dan keluar serta mengawasi kinerja petugas sekolah."
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );
 };
 
-const StatItem = ({ icon, label, value, color }: { icon: React.ReactNode, label: string, value: number, color: string }) => (
-  <Card className="p-4 md:p-6 border-none shadow-sm">
+const StatItem = ({ icon, label, value, color, isCurrency }: { icon: React.ReactNode, label: string, value: number, color: string, isCurrency?: boolean }) => (
+  <Card className="p-4 md:p-6 border-none shadow-sm hover:shadow-md transition-shadow">
     <div className={`w-10 h-10 md:w-12 md:h-12 rounded-2xl flex items-center justify-center mb-4 ${color}`}>
       {icon}
     </div>
-    <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">{label}</p>
-    <p className="text-xl md:text-2xl font-bold text-slate-800 mt-1">{value.toLocaleString()}</p>
+    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{label}</p>
+    <p className="text-lg md:text-2xl font-bold text-slate-800 mt-1 truncate">
+      {isCurrency ? `Rp ${value.toLocaleString('id-ID')}` : value.toLocaleString('id-ID')}
+    </p>
   </Card>
 );
 
 const BendaharaDashboard = () => {
   const { profile } = useAuth();
   const [school, setSchool] = React.useState<any>(null);
+  const [stats, setStats] = React.useState({ totalSavings: 0, totalClassesCash: 0 });
   const [isTopUpOpen, setIsTopUpOpen] = React.useState(false);
   const [isAlokasiOpen, setIsAlokasiOpen] = React.useState(false);
   const [amount, setAmount] = React.useState('');
@@ -337,6 +431,19 @@ const BendaharaDashboard = () => {
       setSchool(doc.data());
     });
 
+    // Fetch school financial stats
+    const studentQ = query(collection(db, 'students'), where('schoolId', '==', profile.schoolId));
+    const unsubStudents = onSnapshot(studentQ, (snap) => {
+      const total = snap.docs.reduce((acc, d) => acc + (d.data().balanceSavings || 0), 0);
+      setStats(prev => ({ ...prev, totalSavings: total }));
+    });
+
+    const classQ = query(collection(db, 'classes'), where('schoolId', '==', profile.schoolId));
+    const unsubClasses = onSnapshot(classQ, (snap) => {
+      const total = snap.docs.reduce((acc, d) => acc + (d.data().balanceCash || 0), 0);
+      setStats(prev => ({ ...prev, totalClassesCash: total }));
+    });
+
     const tuQuery = query(
       collection(db, 'users'), 
       where('schoolId', '==', profile.schoolId),
@@ -346,7 +453,11 @@ const BendaharaDashboard = () => {
       setTuStaff(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     });
 
-    return unsub;
+    return () => {
+      unsub();
+      unsubStudents();
+      unsubClasses();
+    };
   }, [profile?.schoolId]);
 
   const handleTopUp = async (e: React.FormEvent) => {
@@ -439,26 +550,35 @@ const BendaharaDashboard = () => {
           Rp {school?.centralBalance?.toLocaleString('id-ID') || '0'}
         </h2>
         <div className="relative mt-8 flex justify-center gap-4">
-          <Button onClick={() => setIsTopUpOpen(true)} className="bg-white text-brand-teal hover:bg-teal-50 border-none shadow-lg">
+          <Button onClick={() => setIsTopUpOpen(true)} className="bg-white text-brand-teal hover:bg-teal-50 border-none shadow-lg px-6">
             <Plus size={18} className="mr-2" /> Top Up Central
           </Button>
-          <Button onClick={() => setIsAlokasiOpen(true)} variant="outline" className="border-white text-white hover:bg-white/10">
+          <Button onClick={() => setIsAlokasiOpen(true)} variant="outline" className="border-white text-white hover:bg-white/10 px-6">
             <Send size={18} className="mr-2" /> Alokasi ke TU
           </Button>
         </div>
       </Card>
 
-      <div className="grid grid-cols-2 gap-4">
-        <Card className="p-6">
-          <h4 className="font-bold mb-2">Riwayat Kas</h4>
-          <Link to="transactions">
-            <Button variant="outline" className="w-full">Lihat Semua</Button>
-          </Link>
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
+        <Card className="p-6 bg-white shadow-sm flex flex-col items-center">
+          <div className="w-10 h-10 bg-teal-50 text-brand-teal rounded-xl flex items-center justify-center mb-3">
+            <Wallet size={20} />
+          </div>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Tabungan</p>
+          <p className="text-lg font-bold text-slate-800 mt-1">Rp {stats.totalSavings.toLocaleString('id-ID')}</p>
         </Card>
-        <Card className="p-6">
-          <h4 className="font-bold mb-2">Manajemen Siswa</h4>
-          <Link to="students">
-            <Button variant="outline" className="w-full">Data & Akun</Button>
+        
+        <Card className="p-6 bg-white shadow-sm flex flex-col items-center text-center">
+          <div className="w-10 h-10 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center mb-3">
+            <SchoolIcon size={20} />
+          </div>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Kas Kelas</p>
+          <p className="text-lg font-bold text-slate-800 mt-1">Rp {stats.totalClassesCash.toLocaleString('id-ID')}</p>
+        </Card>
+
+        <Card className="p-6 bg-white shadow-sm flex flex-col items-center justify-center lg:col-span-1 col-span-2">
+          <Link to="transactions" className="w-full">
+            <Button variant="outline" className="w-full text-xs h-10">LIHAT RIWAYAT KAS</Button>
           </Link>
         </Card>
       </div>
@@ -523,8 +643,9 @@ const BendaharaDashboard = () => {
 const TUDashboard = () => {
   const { profile } = useAuth();
   const [wallet, setWallet] = React.useState<any>(null);
+  const [recentTransactions, setRecentTransactions] = React.useState<any[]>([]);
   const [isTxOpen, setIsTxOpen] = React.useState(false);
-  const [txType, setTxType] = React.useState<'TABUNGAN_SETOR' | 'TABUNGAN_TARIK' | 'KAS_KELAS_SETOR'>('TABUNGAN_SETOR');
+  const [txType, setTxType] = React.useState<'SETOR_TABUNGAN' | 'TARIK_TABUNGAN'>('SETOR_TABUNGAN');
   const [nisn, setNisn] = React.useState('');
   const [student, setStudent] = React.useState<any>(null);
   const [amount, setAmount] = React.useState('');
@@ -535,7 +656,21 @@ const TUDashboard = () => {
     const unsub = onSnapshot(doc(db, 'tu_wallets', profile.id), (doc) => {
       setWallet(doc.data());
     });
-    return unsub;
+
+    const txQ = query(
+      collection(db, 'transactions'),
+      where('executorId', '==', profile.id),
+      orderBy('timestamp', 'desc'),
+      limit(5)
+    );
+    const unsubTx = onSnapshot(txQ, (snap) => {
+      setRecentTransactions(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+
+    return () => {
+      unsub();
+      unsubTx();
+    };
   }, [profile?.id]);
 
   const handleLookup = async () => {
@@ -555,41 +690,27 @@ const TUDashboard = () => {
     const val = parseInt(amount);
     if (!student || isNaN(val) || val <= 0) return;
 
-    if (txType === 'TABUNGAN_TARIK' && val > student.balanceSavings) {
+    if (txType === 'TARIK_TABUNGAN' && val > student.balanceSavings) {
       alert('Saldo tabungan siswa tidak cukup!');
       return;
     }
-    if (txType === 'TABUNGAN_TARIK' && val > (wallet?.balance || 0)) {
+    if (txType === 'TARIK_TABUNGAN' && val > (wallet?.balance || 0)) {
        alert('Saldo di dompet TU tidak cukup untuk mencairkan!');
        return;
     }
 
     setLoading(true);
     try {
-      const batch = writeBatch(db);
-      const studentRef = doc(db, 'students', student.id);
-      const walletRef = doc(db, 'tu_wallets', profile!.id!);
-      const txRef = doc(collection(db, 'transactions'));
-
-      if (txType === 'TABUNGAN_SETOR') {
-        batch.update(studentRef, { balanceSavings: student.balanceSavings + val });
-        batch.update(walletRef, { balance: (wallet?.balance || 0) + val });
-      } else if (txType === 'TABUNGAN_TARIK') {
-        batch.update(studentRef, { balanceSavings: student.balanceSavings - val });
-        batch.update(walletRef, { balance: wallet.balance - val });
-      }
-
-      batch.set(txRef, {
-        schoolId: profile?.schoolId,
-        type: txType,
-        amount: val,
+      await executeAtomicTransaction({
+        schoolId: profile?.schoolId || '',
         studentId: student.id,
-        executorId: profile?.id,
-        timestamp: new Date().toISOString(),
-        status: 'completed'
+        entityName: student.fullName,
+        amount: val,
+        type: txType,
+        tuId: profile?.id,
+        notes: txType === 'SETOR_TABUNGAN' ? 'Setoran via Loket TU' : 'Penarikan via Loket TU'
       });
 
-      await batch.commit();
       alert('Transaksi Berhasil!');
       setIsTxOpen(false);
       setAmount('');
@@ -597,7 +718,7 @@ const TUDashboard = () => {
       setStudent(null);
     } catch (err) {
       console.error(err);
-      alert('Terjadi kesalahan servis.');
+      handleFirestoreError(err, OperationType.WRITE, 'TU Loket Transaction');
     } finally {
       setLoading(false);
     }
@@ -641,16 +762,40 @@ const TUDashboard = () => {
       </div>
 
       <Card className="p-6">
-        <h3 className="font-bold mb-4 flex items-center gap-2 font-display uppercase tracking-wider text-slate-400 text-xs">
-          <History size={16} /> Aktifitas Terakhir
-        </h3>
-        <div className="py-10 text-center text-slate-400 italic text-sm">
-          Menunggu data transaksi...
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="font-bold flex items-center gap-2 font-display uppercase tracking-wider text-slate-400 text-xs">
+            <History size={16} /> Aktifitas Terakhir Saya
+          </h3>
+          <Link to="transactions" className="text-[10px] font-bold text-brand-teal hover:underline tracking-widest uppercase">Lihat Log</Link>
+        </div>
+        
+        <div className="space-y-4">
+          {recentTransactions.map(tx => (
+            <div key={tx.id} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
+              <div className="flex items-center gap-3">
+                <div className={`w-2 h-2 rounded-full ${tx.type.includes('SETOR') ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                <div>
+                  <p className="text-sm font-bold text-slate-700">{tx.entityName || tx.studentId}</p>
+                  <p className="text-[10px] text-slate-400">
+                    {tx.type.replace(/_/g, ' ')} • {tx.timestamp?.toDate ? tx.timestamp.toDate().toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : '...'}
+                  </p>
+                </div>
+              </div>
+              <p className={`text-sm font-bold ${tx.type.includes('SETOR') ? 'text-emerald-600' : 'text-rose-600'}`}>
+                {tx.type.includes('SETOR') ? '+' : '-'} {tx.amount.toLocaleString('id-ID')}
+              </p>
+            </div>
+          ))}
+          {recentTransactions.length === 0 && (
+            <div className="py-10 text-center text-slate-400 italic text-sm">
+              Belum ada transaksi hari ini.
+            </div>
+          )}
         </div>
       </Card>
 
       {/* Modal Transaksi */}
-      <Modal isOpen={isTxOpen} onClose={() => setIsTxOpen(false)} title={txType.replace(/_/g, ' ')}>
+      <Modal isOpen={isTxOpen} onClose={() => setIsTxOpen(false)} title={txType === 'SETOR_TABUNGAN' ? 'Setoran Tabungan Siswa' : 'Penarikan Tabungan Siswa'}>
         <div className="space-y-6">
           <div className="flex gap-2">
             <Input 
@@ -706,8 +851,8 @@ const TUDashboard = () => {
 const BendaharaKelasDashboard = () => {
   const { profile } = useAuth();
   const [classData, setClassData] = React.useState<any>(null);
+  const [recentTxs, setRecentTxs] = React.useState<any[]>([]);
   const [amount, setAmount] = React.useState('');
-  const [isDepositOpen, setIsDepositOpen] = React.useState(false);
   const [loading, setLoading] = React.useState(false);
 
   React.useEffect(() => {
@@ -715,7 +860,21 @@ const BendaharaKelasDashboard = () => {
     const unsub = onSnapshot(doc(db, 'classes', profile.classId), (doc) => {
       setClassData(doc.data());
     });
-    return unsub;
+
+    const txQ = query(
+      collection(db, 'transactions'),
+      where('classId', '==', profile.classId),
+      orderBy('timestamp', 'desc'),
+      limit(5)
+    );
+    const unsubTx = onSnapshot(txQ, (snap) => {
+      setRecentTxs(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+
+    return () => {
+      unsub();
+      unsubTx();
+    };
   }, [profile?.classId]);
 
   const handleCollectCash = async (e: React.FormEvent) => {
@@ -724,13 +883,19 @@ const BendaharaKelasDashboard = () => {
     if (isNaN(val) || val <= 0) return;
     setLoading(true);
     try {
-      await updateDoc(doc(db, 'classes', profile!.classId!), {
-        balanceCash: (classData?.balanceCash || 0) + val
+      await executeAtomicTransaction({
+        schoolId: profile?.schoolId || '',
+        classId: profile?.classId,
+        entityName: `Iuran Kas Kelas ${classData?.name}`,
+        amount: val,
+        type: 'SETOR_KAS_KELAS',
+        notes: 'Pemasukan Kas Kelas Manual'
       });
       alert('Pemasukan Kas Kelas Dicatat!');
       setAmount('');
     } catch (err) {
       console.error(err);
+      handleFirestoreError(err, OperationType.WRITE, 'Kas Kelas Transaction');
     } finally {
       setLoading(false);
     }
@@ -763,15 +928,39 @@ const BendaharaKelasDashboard = () => {
               value={amount}
               onChange={e => setAmount(e.target.value)}
             />
-            <Button type="submit" disabled={loading}>Simpan</Button>
+            <Button type="submit" disabled={loading}>{loading ? '...' : 'Simpan'}</Button>
           </form>
         </Card>
 
-        <Card className="p-6 border-dashed border-2 flex flex-col items-center text-center py-10">
+        <Card className="p-6">
+          <h4 className="font-bold mb-4 flex items-center gap-2 text-xs uppercase tracking-widest text-slate-400">
+            <History size={16} /> Aktifitas Kelas Terakhir
+          </h4>
+          <div className="space-y-4">
+            {recentTxs.map(tx => (
+              <div key={tx.id} className="flex items-center justify-between py-2 border-b border-slate-50 last:border-0">
+                <div>
+                  <p className="text-sm font-bold text-slate-700">{tx.notes || 'Pemasukan Kas'}</p>
+                  <p className="text-[10px] text-slate-400">
+                    {tx.timestamp?.toDate ? tx.timestamp.toDate().toLocaleTimeString('id-ID') : '...'}
+                  </p>
+                </div>
+                <p className="text-sm font-bold text-emerald-600">
+                  + {tx.amount.toLocaleString('id-ID')}
+                </p>
+              </div>
+            ))}
+            {recentTxs.length === 0 && (
+              <div className="py-6 text-center text-slate-400 italic text-xs">Belum ada aktifitas.</div>
+            )}
+          </div>
+        </Card>
+
+        <Card className="p-6 border-dashed border-2 flex flex-col items-center text-center py-10 opacity-60">
           <History className="text-slate-300 mb-4" size={40} />
           <h4 className="font-bold">Laporan ke TU</h4>
-          <p className="text-sm text-slate-500 mb-6">Setorkan iuran fisik ke TU untuk pencatatan resmi sekolah.</p>
-          <Button variant="outline" onClick={() => alert('Fitur setor ke TU sedang disiapkan.')}>Setor ke TU</Button>
+          <p className="text-sm text-slate-500 mb-6">Fitur setor iuran fisik ke TU untuk pencatatan riil sedang disiapkan.</p>
+          <Button variant="outline" disabled>Segera Hadir</Button>
         </Card>
       </div>
     </div>

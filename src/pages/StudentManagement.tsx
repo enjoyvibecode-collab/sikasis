@@ -3,8 +3,9 @@ import { collection, query, where, onSnapshot, writeBatch, doc, getDocs, setDoc,
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
 import { Card, Button, Input, Modal } from '../components/UI';
-import { UserPlus, Download, Upload, Trash2, Search, FileDown } from 'lucide-react';
+import { UserPlus, Download, Upload, Trash2, Search, FileDown, Wallet } from 'lucide-react';
 import { Student, ClassData } from '../types';
+import { SavingsTransactionModal } from '../components/SavingsTransactionModal';
 import * as XLSX from 'xlsx';
 
 export default function StudentManagement() {
@@ -13,6 +14,8 @@ export default function StudentManagement() {
   const [classes, setClasses] = useState<ClassData[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isTxModalOpen, setIsTxModalOpen] = useState(false);
+  const [selectedStudentForTx, setSelectedStudentForTx] = useState<Student | null>(null);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
     fullName: '',
@@ -218,7 +221,21 @@ export default function StudentManagement() {
             <div className="flex items-center justify-between md:justify-end gap-6 border-t md:border-none pt-4 md:pt-0">
               <div className="text-right">
                 <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Tabungan</p>
-                <p className="font-display font-bold text-brand-teal">Rp {student.balanceSavings.toLocaleString('id-ID')}</p>
+                <div className="flex items-center gap-2">
+                  <p className="font-display font-bold text-brand-teal">Rp {student.balanceSavings.toLocaleString('id-ID')}</p>
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-7 px-2 text-[10px] bg-brand-teal/10 text-brand-teal border-none"
+                    onClick={() => {
+                      setSelectedStudentForTx(student);
+                      setIsTxModalOpen(true);
+                    }}
+                  >
+                    <Wallet size={12} className="mr-1" />
+                    TRANSAKSI
+                  </Button>
+                </div>
               </div>
               <Button 
                 variant="outline" 
@@ -238,6 +255,15 @@ export default function StudentManagement() {
           </div>
         )}
       </div>
+
+      <SavingsTransactionModal 
+        isOpen={isTxModalOpen}
+        onClose={() => {
+          setIsTxModalOpen(false);
+          setSelectedStudentForTx(null);
+        }}
+        student={selectedStudentForTx}
+      />
     </div>
   );
 }

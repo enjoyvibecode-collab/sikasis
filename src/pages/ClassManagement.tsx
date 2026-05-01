@@ -3,13 +3,16 @@ import { collection, query, where, onSnapshot, doc, setDoc, deleteDoc, getDocs }
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
 import { Card, Button, Input, Modal } from '../components/UI';
-import { School as SchoolIcon, Plus, Trash2, Users } from 'lucide-react';
+import { School as SchoolIcon, Plus, Trash2, Users, Wallet } from 'lucide-react';
 import { ClassData } from '../types';
+import { ClassCashModal } from '../components/ClassCashModal';
 
 export default function ClassManagement() {
   const { profile } = useAuth();
   const [classes, setClasses] = useState<ClassData[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isCashModalOpen, setIsCashModalOpen] = useState(false);
+  const [selectedClassForCash, setSelectedClassForCash] = useState<ClassData | null>(null);
   const [loading, setLoading] = useState(false);
   const [newClassName, setNewClassName] = useState('');
 
@@ -81,6 +84,17 @@ export default function ClassManagement() {
                 </div>
                 <span className="font-bold text-slate-800">Rp {cls.balanceCash.toLocaleString('id-ID')}</span>
               </div>
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="w-full mt-4 bg-brand-teal/10 text-brand-teal text-xs font-bold"
+                onClick={() => {
+                  setSelectedClassForCash(cls);
+                  setIsCashModalOpen(true);
+                }}
+              >
+                <Wallet size={14} className="mr-2" /> KELOLA KAS
+              </Button>
             </div>
 
             <button 
@@ -97,6 +111,15 @@ export default function ClassManagement() {
           </div>
         )}
       </div>
+
+      <ClassCashModal 
+        isOpen={isCashModalOpen}
+        onClose={() => {
+          setIsCashModalOpen(false);
+          setSelectedClassForCash(null);
+        }}
+        classData={selectedClassForCash}
+      />
 
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Tambah Kelas Baru">
         <form onSubmit={handleAddClass} className="space-y-4">
