@@ -335,7 +335,10 @@ const KepalaSekolahDashboard = () => {
       <div className="flex justify-between items-start">
         <div>
           <h1 className="text-2xl md:text-3xl font-bold text-slate-800">Halo, {profile?.fullName}</h1>
-          <p className="text-slate-500 text-sm italic">"Memimpin dengan integritas, mengelola dengan transparan."</p>
+          <div className="flex items-center gap-2 mt-1">
+             <span className="bg-blue-50 text-blue-600 text-[10px] font-bold px-2 py-0.5 rounded-full border border-blue-100 uppercase tracking-widest">KEPALA SEKOLAH</span>
+             <p className="text-slate-500 text-sm italic">"Memimpin dengan integritas, mengelola dengan transparan."</p>
+          </div>
         </div>
         <div className="text-right hidden md:block">
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status Sekolah</p>
@@ -752,13 +755,39 @@ const TUDashboard = () => {
     <div className="p-4 md:p-8 space-y-8 max-w-4xl mx-auto">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-slate-800">Panel Operasional TU</h1>
+          <div className="flex items-center gap-2 mb-1">
+            <h1 className="text-3xl font-bold text-slate-800">Panel Operasional TU</h1>
+            <span className="bg-brand-teal/10 text-brand-teal text-[10px] font-bold px-2 py-0.5 rounded-full border border-brand-teal/20 uppercase tracking-wider">
+              {profile?.role?.replace('_', ' ')}
+            </span>
+          </div>
           <p className="text-slate-500">Layanan setor/tarik tabungan & kas kelas.</p>
         </div>
         <Card className="p-4 bg-slate-900 text-white border-none min-w-[200px]">
           <p className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">Modal di Tangan</p>
           <p className="text-xl font-display font-bold">Rp {wallet?.balance?.toLocaleString('id-ID') || '0'}</p>
         </Card>
+      </div>
+
+      {/* Info Wewenang */}
+      <div className="bg-teal-50 border border-teal-100 p-4 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-brand-teal text-white rounded-xl flex items-center justify-center shadow-sm">
+            <ShieldCheck size={20} />
+          </div>
+          <div>
+            <p className="text-[10px] font-bold text-teal-600 uppercase tracking-widest">Status Wewenang Akses</p>
+            <h4 className="text-sm font-bold text-slate-800">
+              {profile?.authorizedGrades?.includes('Semua') 
+                ? 'Akses Penuh Seluruh Tingkat' 
+                : `Mengelola Tingkat: ${profile?.authorizedGrades?.join(', ')}`}
+            </h4>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-lg border border-teal-100 shadow-sm">
+          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="text-xs font-bold text-slate-600">SISTEM AKTIF</span>
+        </div>
       </div>
 
       <div className="grid md:grid-cols-2 gap-6">
