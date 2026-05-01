@@ -3,7 +3,7 @@ import { collection, query, where, onSnapshot, writeBatch, doc, getDocs, setDoc,
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
 import { Card, Button, Input, Modal } from '../components/UI';
-import { UserPlus, Download, Upload, Trash2, Search, FileDown, Wallet } from 'lucide-react';
+import { UserPlus, Download, Upload, Trash2, Search, FileDown, Wallet, Edit } from 'lucide-react';
 import { Student, ClassData } from '../types';
 import { SavingsTransactionModal } from '../components/SavingsTransactionModal';
 import * as XLSX from 'xlsx';
@@ -15,6 +15,8 @@ export default function StudentManagement() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClassId, setSelectedClassId] = useState('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [isTxModalOpen, setIsTxModalOpen] = useState(false);
   const [selectedStudentForTx, setSelectedStudentForTx] = useState<Student | null>(null);
   const [loading, setLoading] = useState(false);
@@ -83,7 +85,22 @@ export default function StudentManagement() {
         const newClassesCreated = new Set<string>();
 
         data.forEach((row: any) => {
-          const rawClassName = String(row['Nama Kelas'] || '').trim();
+          // Robust header matching
+          const getVal = (possibleKeys: string[]) => {
+            const keys = Object.keys(row);
+            for (const pk of possibleKeys) {
+              const key = keys.find(k => k.trim().toLowerCase() === pk.toLowerCase());
+              if (key) return row[key];
+            }
+            return undefined;
+          };
+
+          const rawClassName = String(getVal(['Nama Kelas', 'Kelas', 'Class', 'Kls']) || '').trim();
+          const fullName = getVal(['Nama Lengkap', 'Nama', 'Full Name', 'Student Name']);
+          const nisnVal = String(getVal(['NISN', 'Nomor Induk', 'ID']) || '');
+          const waStudent = String(getVal(['WA Siswa', 'WhatsApp Siswa', 'Phone Student']) || '');
+          const waParent = String(getVal(['WA Orangtua', 'WhatsApp Orangtua', 'Phone Parent']) || '');
+          
           const classNameLower = rawClassName.toLowerCase();
           
           let targetClassId = classMap[classNameLower];
@@ -106,15 +123,15 @@ export default function StudentManagement() {
             targetClassId = 'Umum';
           }
 
-          const studentId = `std_${row.NISN || Date.now() + Math.random()}`;
+          const studentId = `std_${nisnVal || Date.now() + Math.random()}`;
           batch.set(doc(db, 'students', studentId), {
             schoolId: profile?.schoolId,
-            fullName: row['Nama Lengkap'],
-            nisn: String(row['NISN']),
-            whatsappStudent: String(row['WA Siswa'] || ''),
-            whatsappParent: String(row['WA Orangtua'] || ''),
+            fullName: fullName || 'Siswa Tanpa Nama',
+            nisn: nisnVal,
+            whatsappStudent: waStudent,
+            whatsappParent: waParent,
             classId: targetClassId,
-            className: rawClassName,
+            className: rawClassName || 'Umum',
             balanceSavings: 0,
             status: 'active',
             createdAt: new Date().toISOString()
@@ -142,24 +159,46 @@ export default function StudentManagement() {
     e.preventDefault();
     setLoading(true);
     try {
-      const studentId = `std_${formData.nisn || Date.now()}`;
+      const studentId = isEditMode && editingId ? editingId : `std_${formData.nisn || Date.now()}`;
       const className = classes.find(c => c.id === formData.classId)?.name || 'Umum';
       
-      await setDoc(doc(db, 'students', studentId), {
+      const payload: any = {
         ...formData,
         className,
         schoolId: profile?.schoolId,
-        balanceSavings: 0,
         status: 'active',
-        createdAt: new Date().toISOString()
-      });
+        updatedAt: new Date().toISOString()
+      };
+
+      if (!isEditMode) {
+        payload.balanceSavings = 0;
+        payload.createdAt = new Date().toISOString();
+      }
+
+      await setDoc(doc(db, 'students', studentId), payload, { merge: true });
+      
       setIsModalOpen(false);
       setFormData({ fullName: '', nisn: '', whatsappStudent: '', whatsappParent: '', classId: '' });
+      setIsEditMode(false);
+      setEditingId(null);
     } catch (err) {
       handleFirestoreError(err, OperationType.CREATE, `students/${formData.nisn}`);
     } finally {
       setLoading(false);
     }
+  };
+
+  const editStudent = (student: Student) => {
+    setFormData({
+      fullName: student.fullName,
+      nisn: student.nisn,
+      whatsappStudent: student.whatsappStudent || '',
+      whatsappParent: student.whatsappParent || '',
+      classId: student.classId
+    });
+    setEditingId(student.id);
+    setIsEditMode(true);
+    setIsModalOpen(true);
   };
 
   const removeStudent = async (id: string) => {
@@ -186,6 +225,17 @@ export default function StudentManagement() {
           <p className="text-sm text-slate-500">Kelola data siswa dan tabungan di sekolah Anda.</p>
         </div>
         <div className="flex gap-2 w-full md:w-auto">
+          <Button 
+            variant="outline" 
+            onClick={() => {
+              setIsEditMode(false);
+              setFormData({ fullName: '', nisn: '', whatsappStudent: '', whatsappParent: '', classId: '' });
+              setIsModalOpen(true);
+            }} 
+            className="gap-2 flex-1 md:flex-none border-brand-teal text-brand-teal"
+          >
+            <UserPlus size={18} /> Tambah
+          </Button>
           <Button variant="outline" onClick={downloadTemplate} className="gap-2 flex-1 md:flex-none">
             <Download size={18} /> Template
           </Button>
@@ -235,7 +285,7 @@ export default function StudentManagement() {
               <div>
                 <h4 className="font-bold text-slate-800">{student.fullName}</h4>
                 <p className="text-xs text-slate-500">
-                  NISN: {student.nisn} • Kelas: {classes.find(c => c.id === student.classId)?.name || student.classId}
+                  NISN: {student.nisn} • Kelas: {classes.find(c => c.id === student.classId)?.name || student.className || student.classId}
                 </p>
               </div>
             </div>
@@ -258,14 +308,24 @@ export default function StudentManagement() {
                   </Button>
                 </div>
               </div>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="h-9 w-9 p-0 text-slate-400 hover:text-rose-500 border-none"
-                onClick={() => removeStudent(student.id)}
-              >
-                <Trash2 size={18} />
-              </Button>
+               <div className="flex items-center gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-9 w-9 p-0 text-slate-400 hover:text-brand-teal border-none"
+                  onClick={() => editStudent(student)}
+                >
+                  <Edit size={18} />
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-9 w-9 p-0 text-slate-400 hover:text-rose-500 border-none"
+                  onClick={() => removeStudent(student.id)}
+                >
+                  <Trash2 size={18} />
+                </Button>
+              </div>
             </div>
           </Card>
         ))}
@@ -276,6 +336,71 @@ export default function StudentManagement() {
           </div>
         )}
       </div>
+
+      <Modal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        title={isEditMode ? "Edit Data Siswa" : "Tambah Siswa Baru"}
+      >
+        <form onSubmit={handleManualAdd} className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-bold text-slate-700 mb-1 block">Nama Lengkap</label>
+              <Input 
+                placeholder="Masukkan nama lengkap..." 
+                required
+                value={formData.fullName}
+                onChange={e => setFormData({ ...formData, fullName: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-bold text-slate-700 mb-1 block">NISN</label>
+              <Input 
+                placeholder="Masukkan NISN..." 
+                required
+                disabled={isEditMode}
+                value={formData.nisn}
+                onChange={e => setFormData({ ...formData, nisn: e.target.value })}
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="text-sm font-bold text-slate-700 mb-1 block">WA Siswa (Opsional)</label>
+              <Input 
+                placeholder="08..." 
+                value={formData.whatsappStudent}
+                onChange={e => setFormData({ ...formData, whatsappStudent: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="text-sm font-bold text-slate-700 mb-1 block">WA Orangtua (Opsional)</label>
+              <Input 
+                placeholder="08..." 
+                value={formData.whatsappParent}
+                onChange={e => setFormData({ ...formData, whatsappParent: e.target.value })}
+              />
+            </div>
+          </div>
+          <div>
+            <label className="text-sm font-bold text-slate-700 mb-1 block">Pilih Kelas</label>
+            <select 
+              className="w-full h-11 px-4 rounded-xl border border-brand-sand focus:border-brand-teal outline-none transition-all text-sm"
+              required
+              value={formData.classId}
+              onChange={e => setFormData({ ...formData, classId: e.target.value })}
+            >
+              <option value="">-- Pilih Kelas --</option>
+              {classes.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
+          <Button className="w-full h-12 shadow-lg shadow-brand-teal/20" disabled={loading}>
+            {loading ? 'Menyimpan...' : (isEditMode ? 'Simpan Perubahan' : 'Daftarkan Siswa')}
+          </Button>
+        </form>
+      </Modal>
 
       <SavingsTransactionModal 
         isOpen={isTxModalOpen}
