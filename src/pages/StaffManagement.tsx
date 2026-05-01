@@ -149,18 +149,18 @@ export default function StaffManagement() {
               )}
             </div>
 
-            {member.uid !== profile?.uid && member.role !== 'owner' && (
+            {member.id !== profile?.id && member.role !== 'owner' && (
               <div className="flex gap-2">
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  className="flex-1 text-slate-600 hover:bg-slate-50"
+                  className="flex-1 text-slate-600 hover:bg-slate-50 font-bold text-[10px] uppercase tracking-wider"
                   onClick={() => {
                     setFormData({
                       email: member.inviteEmail || '',
                       fullName: member.fullName,
                       role: member.role,
-                      classId: member.classId,
+                      classId: member.classId || '',
                       authorizedGrades: member.authorizedGrades || []
                     });
                     setEditingStaffId(member.id);
