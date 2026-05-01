@@ -6,6 +6,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { auth } from './lib/firebase';
 import Landing from './pages/Landing';
 import Login from './pages/Login';
 import RegisterSchool from './pages/RegisterSchool';
@@ -13,20 +14,34 @@ import Dashboard from './pages/Dashboard';
 import PublicStudentView from './pages/PublicStudentView';
 import { AnimatePresence } from 'motion/react';
 
-function ProtectedRoute({ children, requiredRole }: { children: React.ReactNode, requiredRole?: string }) {
+function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { user, profile, loading, schoolActive } = useAuth();
 
-  if (loading) return <div className="h-screen flex items-center justify-center bg-brand-cream">
-    <div className="animate-pulse text-brand-teal font-display text-2xl">SiKasis...</div>
-  </div>;
+  if (loading) return (
+    <div className="h-screen flex items-center justify-center bg-brand-cream">
+      <div className="flex flex-col items-center gap-4">
+        <div className="w-12 h-12 border-4 border-brand-teal border-t-transparent rounded-full animate-spin"></div>
+        <div className="text-brand-teal font-display text-xl animate-pulse">Memuat Data...</div>
+      </div>
+    </div>
+  );
 
-  if (!user) return <Navigate to="/login" />;
+  if (!user) return <Navigate to="/login" replace />;
   
-  if (profile?.role !== 'owner' && profile?.role !== 'kepala_sekolah' && !schoolActive) {
-    return <div className="h-screen flex flex-col items-center justify-center p-6 text-center">
+  // If user exists but profile is missing, it might be a new user or a sync error
+  if (!profile) return (
+    <div className="h-screen flex flex-col items-center justify-center p-6 text-center bg-brand-cream">
+      <h1 className="text-2xl text-amber-600 mb-2">Profil Tidak Ditemukan</h1>
+      <p className="text-slate-600 max-w-md">Akun Anda sedang disinkronkan. Jika pesan ini tidak hilang, silakan login ulang.</p>
+      <button onClick={() => auth.signOut().then(() => window.location.href = '/login')} className="mt-4 px-6 py-2 bg-brand-teal text-white rounded-lg">Logout & Login Ulang</button>
+    </div>
+  );
+  
+  if (profile.role !== 'owner' && profile.role !== 'kepala_sekolah' && !schoolActive) {
+    return <div className="h-screen flex flex-col items-center justify-center p-6 text-center bg-brand-cream">
       <h1 className="text-2xl text-rose-600 mb-2">Sekolah Belum Aktif</h1>
-      <p className="text-slate-600">Akun sekolah Anda sedang menunggu persetujuan dari Owner Aplikasi.</p>
-      <button onClick={() => window.location.href='/login'} className="mt-4 text-brand-teal underline">Logout</button>
+      <p className="text-slate-600 max-w-md">Akun sekolah Anda sedang menunggu persetujuan dari Owner Aplikasi.</p>
+      <button onClick={() => auth.signOut().then(() => window.location.href='/login')} className="mt-4 text-brand-teal font-bold hover:underline">Keluar (Logout)</button>
     </div>;
   }
 

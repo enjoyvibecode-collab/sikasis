@@ -738,39 +738,39 @@ export default function Dashboard() {
     switch (profile?.role) {
       case 'owner':
         return [
-          { icon: <LayoutDashboard size={20} />, label: 'Overview', path: '' },
-          { icon: <SchoolIcon size={20} />, label: 'Daftar Sekolah', path: 'schools' },
-          { icon: <History size={20} />, label: 'Log System', path: 'transactions' },
-          { icon: <Settings size={20} />, label: 'Pengaturan Admin', path: 'settings' },
+          { icon: <LayoutDashboard size={20} />, label: 'Overview', path: '/dashboard' },
+          { icon: <SchoolIcon size={20} />, label: 'Daftar Sekolah', path: '/dashboard/schools' },
+          { icon: <History size={20} />, label: 'Log System', path: '/dashboard/transactions' },
+          { icon: <Settings size={20} />, label: 'Pengaturan Admin', path: '/dashboard/settings' },
         ];
       case 'kepala_sekolah':
         return [
-          { icon: <LayoutDashboard size={20} />, label: 'Overview', path: '' },
-          { icon: <SchoolIcon size={20} />, label: 'Manajemen Kelas', path: 'classes' },
-          { icon: <UserCircle size={20} />, label: 'Data Siswa', path: 'students' },
-          { icon: <Users size={20} />, label: 'Manajemen Staf', path: 'staff' },
-          { icon: <History size={20} />, label: 'Audit Transaksi', path: 'transactions' },
+          { icon: <LayoutDashboard size={20} />, label: 'Overview', path: '/dashboard' },
+          { icon: <SchoolIcon size={20} />, label: 'Manajemen Kelas', path: '/dashboard/classes' },
+          { icon: <UserCircle size={20} />, label: 'Data Siswa', path: '/dashboard/students' },
+          { icon: <Users size={20} />, label: 'Manajemen Staf', path: '/dashboard/staff' },
+          { icon: <History size={20} />, label: 'Audit Transaksi', path: '/dashboard/transactions' },
         ];
       case 'bendahara':
         return [
-          { icon: <LayoutDashboard size={20} />, label: 'Kas Utama', path: '' },
-          { icon: <UserCircle size={20} />, label: 'Data Siswa', path: 'students' },
-          { icon: <History size={20} />, label: 'Riwayat Kas', path: 'transactions' },
+          { icon: <LayoutDashboard size={20} />, label: 'Kas Utama', path: '/dashboard' },
+          { icon: <UserCircle size={20} />, label: 'Data Siswa', path: '/dashboard/students' },
+          { icon: <History size={20} />, label: 'Riwayat Kas', path: '/dashboard/transactions' },
         ];
       case 'tu':
         return [
-          { icon: <LayoutDashboard size={20} />, label: 'Loket TU', path: '' },
-          { icon: <UserCircle size={20} />, label: 'Cari Siswa', path: 'students' },
-          { icon: <History size={20} />, label: 'Riwayat Saya', path: 'transactions' },
+          { icon: <LayoutDashboard size={20} />, label: 'Loket TU', path: '/dashboard' },
+          { icon: <UserCircle size={20} />, label: 'Cari Siswa', path: '/dashboard/students' },
+          { icon: <History size={20} />, label: 'Riwayat Saya', path: '/dashboard/transactions' },
         ];
       case 'bendahara_kelas':
         return [
-          { icon: <LayoutDashboard size={20} />, label: 'Kas Kelas', path: '' },
-          { icon: <History size={20} />, label: 'Log Aktivitas', path: 'transactions' },
+          { icon: <LayoutDashboard size={20} />, label: 'Kas Kelas', path: '/dashboard' },
+          { icon: <History size={20} />, label: 'Log Aktivitas', path: '/dashboard/transactions' },
         ];
       default:
         return [
-          { icon: <LayoutDashboard size={20} />, label: 'Dashboard', path: '' },
+          { icon: <LayoutDashboard size={20} />, label: 'Dashboard', path: '/dashboard' },
         ];
     }
   };
@@ -890,11 +890,9 @@ export default function Dashboard() {
 const NavLink: React.FC<{ icon: React.ReactNode, label: string, path: string, onClick: () => void }> = ({ icon, label, path, onClick }) => {
   const location = useLocation();
   const currentPath = location.pathname;
-  const isDashboardRoot = path === '' || path === '.';
   
-  // Construct absolute path for comparison
-  const absolutePath = isDashboardRoot ? '/dashboard' : `/dashboard/${path}`;
-  const isActive = currentPath === absolutePath || (currentPath === '/dashboard/' && absolutePath === '/dashboard');
+  // Use path directly as it is now absolute
+  const isActive = currentPath === path || (currentPath === '/dashboard/' && path === '/dashboard');
 
   return (
     <Link 
