@@ -63,6 +63,7 @@ export default function RegisterSchool() {
       
       await setDoc(doc(db, 'users', user.uid), {
         username: user.email?.split('@')[0] || 'user',
+        email: user.email,
         fullName: user.displayName || 'Tanpa Nama',
         role: isSystemOwner ? 'owner' : 'kepala_sekolah',
         schoolId: isSystemOwner ? 'system' : schoolId,

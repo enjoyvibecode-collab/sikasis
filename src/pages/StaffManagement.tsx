@@ -43,27 +43,24 @@ export default function StaffManagement() {
       // Filter out current user (headmaster doesn't need to see themselves in staff list)
       const filteredStaff = allUsers.filter(u => u.id !== profile?.id);
       
-      // Deduplicate by email (prefer real user UID over staff_ placeholder)
+      // Deduplicate by identity (email or username)
       const staffMap = new Map<string, any>();
       filteredStaff.forEach(u => {
-        const email = (u.inviteEmail || u.email || (u.username ? `${u.username}@school.com` : '')).toLowerCase();
-        if (!email) return;
-
-        const existing = staffMap.get(email);
+        // Try to find a unique key: real email > invite email > username
+        const identityKey = (u.email || u.inviteEmail || u.username || u.id).toLowerCase();
         
-        // Logic: If we find a real user (not starting with staff_), always use it.
-        // If we only have staff_ placeholder, use that until real user appears.
+        const existing = staffMap.get(identityKey);
+        
         if (!existing) {
-          staffMap.set(email, u);
+          staffMap.set(identityKey, u);
         } else {
-          const existingIsStaff = existing.id.startsWith('staff_');
-          const currentIsStaff = u.id.startsWith('staff_');
+          // Prefer records that are NOT placeholders (active sessions)
+          const existingIsPlaceholder = existing.id.startsWith('staff_');
+          const currentIsPlaceholder = u.id.startsWith('staff_');
           
-          if (existingIsStaff && !currentIsStaff) {
-            // Replace placeholder with real active user
-            staffMap.set(email, u);
+          if (existingIsPlaceholder && !currentIsPlaceholder) {
+            staffMap.set(identityKey, u);
           }
-          // Otherwise, if existing is already active, keep it.
         }
       });
 
@@ -102,7 +99,7 @@ export default function StaffManagement() {
           classId: formData.classId || null,
           authorizedGrades: formData.authorizedGrades,
           status: 'active',
-          inviteEmail: formData.email 
+          inviteEmail: formData.email.toLowerCase() 
         });
         alert('Staf berhasil diundang.');
       }

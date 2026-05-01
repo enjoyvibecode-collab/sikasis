@@ -60,10 +60,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 // Use UID as document ID for the final profile
                 await setDoc(userDocRef, { 
                   ...inviteData, 
+                  email: authUser.email,
                   inviteEmail: null, 
                   status: 'active',
                   id: authUser.uid 
-                });
+                }, { merge: true });
                 
                 // Remove the invitation document
                 await deleteDoc(inviteDoc.ref);
