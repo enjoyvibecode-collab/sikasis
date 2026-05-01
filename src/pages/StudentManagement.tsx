@@ -72,12 +72,33 @@ export default function StudentManagement() {
         
         // Map class names to IDs for easier matching
         const classMap = classes.reduce((acc, c) => ({ ...acc, [c.name.toLowerCase()]: c.id }), {} as any);
+        const newClassesCreated = new Set<string>();
 
         data.forEach((row: any) => {
-          const studentId = `std_${row.NISN || Date.now() + Math.random()}`;
-          const className = String(row['Nama Kelas'] || '').toLowerCase();
-          const targetClassId = classMap[className] || 'Umum';
+          const rawClassName = String(row['Nama Kelas'] || '').trim();
+          const classNameLower = rawClassName.toLowerCase();
+          
+          let targetClassId = classMap[classNameLower];
 
+          // Auto-Create Class logic
+          if (!targetClassId && rawClassName) {
+            targetClassId = `cls_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`;
+            classMap[classNameLower] = targetClassId; // Save to map for other students in same file
+            
+            // Add new class document to batch
+            batch.set(doc(db, 'classes', targetClassId), {
+              schoolId: profile?.schoolId,
+              name: rawClassName,
+              code: rawClassName.toUpperCase().replace(/\s+/g, ''),
+              description: `Otomatis dibuat dari impor siswa`,
+              createdAt: new Date().toISOString()
+            });
+            newClassesCreated.add(rawClassName);
+          } else if (!targetClassId) {
+            targetClassId = 'Umum';
+          }
+
+          const studentId = `std_${row.NISN || Date.now() + Math.random()}`;
           batch.set(doc(db, 'students', studentId), {
             schoolId: profile?.schoolId,
             fullName: row['Nama Lengkap'],
@@ -93,7 +114,10 @@ export default function StudentManagement() {
 
         try {
           await batch.commit();
-          alert(`${data.length} Siswa berhasil diimpor!`);
+          const msg = newClassesCreated.size > 0 
+            ? `${data.length} Siswa berhasil diimpor! Juga berhasil membuat ${newClassesCreated.size} kelas baru: ${Array.from(newClassesCreated).join(', ')}`
+            : `${data.length} Siswa berhasil diimpor!`;
+          alert(msg);
           e.target.value = '';
         } catch (err) {
           console.error(err);
@@ -183,7 +207,9 @@ export default function StudentManagement() {
               </div>
               <div>
                 <h4 className="font-bold text-slate-800">{student.fullName}</h4>
-                <p className="text-xs text-slate-500">NISN: {student.nisn} • Kelas: {student.classId}</p>
+                <p className="text-xs text-slate-500">
+                  NISN: {student.nisn} • Kelas: {classes.find(c => c.id === student.classId)?.name || student.classId}
+                </p>
               </div>
             </div>
             <div className="flex items-center justify-between md:justify-end gap-6 border-t md:border-none pt-4 md:pt-0">
