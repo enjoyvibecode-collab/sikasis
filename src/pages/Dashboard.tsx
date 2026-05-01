@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Routes, Route, Link, useNavigate } from 'react-router-dom';
+import { Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   School as SchoolIcon, 
@@ -864,17 +864,29 @@ export default function Dashboard() {
 }
 
 const NavLink: React.FC<{ icon: React.ReactNode, label: string, path: string, onClick: () => void }> = ({ icon, label, path, onClick }) => {
+  const location = useLocation();
+  const currentPath = location.pathname;
+  const isDashboardRoot = path === '' || path === '.';
+  
+  // Construct absolute path for comparison
+  const absolutePath = isDashboardRoot ? '/dashboard' : `/dashboard/${path}`;
+  const isActive = currentPath === absolutePath || (currentPath === '/dashboard/' && absolutePath === '/dashboard');
+
   return (
     <Link 
       to={path}
-      className="flex items-center justify-between px-4 py-3 rounded-xl cursor-pointer transition-all hover:bg-teal-50 group no-underline"
+      className={`flex items-center justify-between px-4 py-3 rounded-xl cursor-pointer transition-all no-underline group ${
+        isActive 
+          ? 'bg-brand-teal text-white shadow-md shadow-brand-teal/20' 
+          : 'hover:bg-teal-50 text-slate-600'
+      }`}
       onClick={onClick}
     >
       <div className="flex items-center gap-3">
-        <span className="text-slate-400 group-hover:text-brand-teal transition-colors">{icon}</span>
-        <span className="font-semibold text-slate-600 group-hover:text-brand-teal transition-colors tracking-tight">{label}</span>
+        <span className={`${isActive ? 'text-white' : 'text-slate-400 group-hover:text-brand-teal'} transition-colors`}>{icon}</span>
+        <span className={`font-semibold tracking-tight transition-colors ${isActive ? 'text-white' : 'group-hover:text-brand-teal'}`}>{label}</span>
       </div>
-      <ChevronRight size={16} className="text-slate-300 group-hover:text-brand-teal transition-colors" />
+      {!isActive && <ChevronRight size={16} className="text-slate-300 group-hover:text-brand-teal transition-colors" />}
     </Link>
   );
 };

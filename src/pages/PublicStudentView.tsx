@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { Button, Input, Card } from '../components/UI';
-import { Wallet, Search, TrendingUp, History, User, AlertCircle, RefreshCw, Download, FileText, Table } from 'lucide-react';
+import { Wallet, Search, TrendingUp, History, User, AlertCircle, RefreshCw, Download, FileText, Table, ArrowLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Student, Transaction } from '../types';
 import * as XLSX from 'xlsx';
@@ -10,6 +11,7 @@ import { jsPDF } from 'jspdf';
 import 'jspdf-autotable';
 
 export default function PublicStudentView() {
+  const navigate = useNavigate();
   const [nisn, setNisn] = useState('');
   const [student, setStudent] = useState<Student | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -99,7 +101,12 @@ export default function PublicStudentView() {
 
   return (
     <div className="min-h-screen bg-brand-cream pb-20">
-      <header className="bg-brand-teal text-white py-12 px-6 text-center">
+      <header className="bg-brand-teal text-white py-12 px-6 text-center relative">
+        <div className="absolute top-6 left-6">
+          <Link to="/" className="flex items-center gap-2 text-teal-100 hover:text-white transition-colors no-underline">
+            <ArrowLeft size={20} /> <span className="font-semibold">Kembali</span>
+          </Link>
+        </div>
         <div className="max-w-7xl mx-auto">
           <div className="flex items-center justify-center gap-2 mb-6">
             <Wallet size={20} />
