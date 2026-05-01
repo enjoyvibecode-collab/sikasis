@@ -64,6 +64,7 @@ export interface Student {
   id: string;
   schoolId: string;
   classId: string;
+  className: string; // Added for easy filtering and display
   nisn: string;
   fullName: string;
   balanceSavings: number;

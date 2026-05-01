@@ -113,6 +113,7 @@ export default function StudentManagement() {
             whatsappStudent: String(row['WA Siswa'] || ''),
             whatsappParent: String(row['WA Orangtua'] || ''),
             classId: targetClassId,
+            className: rawClassName,
             balanceSavings: 0,
             status: 'active',
             createdAt: new Date().toISOString()
@@ -141,8 +142,11 @@ export default function StudentManagement() {
     setLoading(true);
     try {
       const studentId = `std_${formData.nisn || Date.now()}`;
+      const className = classes.find(c => c.id === formData.classId)?.name || 'Umum';
+      
       await setDoc(doc(db, 'students', studentId), {
         ...formData,
+        className,
         schoolId: profile?.schoolId,
         balanceSavings: 0,
         status: 'active',

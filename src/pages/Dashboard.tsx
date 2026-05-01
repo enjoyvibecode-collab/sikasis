@@ -46,6 +46,7 @@ import StudentManagement from './StudentManagement';
 import ClassManagement from './ClassManagement';
 import TransactionHistory from './TransactionHistory';
 import TransactionCounter from './TransactionCounter';
+import AnnouncementManagement from './AnnouncementManagement';
 
 const OwnerOverview = () => {
   const [stats, setStats] = React.useState({ schools: 0, pendingSchools: 0, students: 0, staff: 0 });
@@ -272,6 +273,7 @@ const KepalaSekolahDashboard = () => {
   const { profile } = useAuth();
   const [stats, setStats] = React.useState({ staff: 0, students: 0, classes: 0, totalSavings: 0, totalClassCash: 0 });
   const [recentTxs, setRecentTxs] = React.useState<any[]>([]);
+  const [showAnnouncements, setShowAnnouncements] = React.useState(false);
 
   React.useEffect(() => {
     if (!profile?.schoolId) return;
@@ -313,6 +315,20 @@ const KepalaSekolahDashboard = () => {
       unsubTx();
     };
   }, [profile?.schoolId]);
+
+  if (showAnnouncements) {
+    return (
+      <div className="p-4 md:p-8 space-y-8">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" className="p-2" onClick={() => setShowAnnouncements(false)}>
+            <X size={20} />
+          </Button>
+          <h1 className="text-2xl font-bold">Kelola Pengumuman</h1>
+        </div>
+        <AnnouncementManagement />
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 md:p-8 space-y-8">
@@ -389,6 +405,13 @@ const KepalaSekolahDashboard = () => {
                 <span className="text-sm font-medium text-slate-300 group-hover:text-white">Manajemen Kelas</span>
                 <ChevronRight size={16} className="text-white/20" />
               </Link>
+              <button 
+                onClick={() => setShowAnnouncements(true)}
+                className="w-full flex items-center justify-between p-3 rounded-xl bg-brand-teal/20 hover:bg-brand-teal/30 transition-colors group border border-brand-teal/20"
+              >
+                <span className="text-sm font-bold text-brand-teal group-hover:text-white">📢 Buat Pengumuman</span>
+                <ChevronRight size={16} className="text-brand-teal" />
+              </button>
             </div>
           </Card>
           
