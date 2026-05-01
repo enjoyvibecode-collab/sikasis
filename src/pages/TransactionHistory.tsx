@@ -11,28 +11,40 @@ export default function TransactionHistory() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!profile?.schoolId) return;
+    if (!profile?.schoolId && profile?.role !== 'owner') return;
 
-    let q = query(
-      collection(db, 'transactions'),
-      where('schoolId', '==', profile.schoolId),
-      orderBy('timestamp', 'desc'),
-      limit(50)
-    );
-
-    // If TU, filter by their own executions
-    if (profile.role === 'tu') {
+    let q;
+    if (profile?.role === 'owner') {
+      q = query(
+        collection(db, 'transactions'),
+        orderBy('timestamp', 'desc'),
+        limit(100)
+      );
+    } else {
       q = query(
         collection(db, 'transactions'),
         where('schoolId', '==', profile.schoolId),
-        where('executorId', '==', profile.id),
         orderBy('timestamp', 'desc'),
         limit(50)
       );
+
+      // If TU, filter by their own executions
+      if (profile.role === 'tu') {
+        q = query(
+          collection(db, 'transactions'),
+          where('schoolId', '==', profile.schoolId),
+          where('executorId', '==', profile.id),
+          orderBy('timestamp', 'desc'),
+          limit(50)
+        );
+      }
     }
 
     const unsub = onSnapshot(q, (snapshot) => {
       setTransactions(snapshot.docs.map(d => ({ id: d.id, ...d.data() })));
+      setLoading(false);
+    }, (err) => {
+      console.error(err);
       setLoading(false);
     });
 
@@ -56,7 +68,11 @@ export default function TransactionHistory() {
     <div className="p-4 md:p-8 max-w-4xl mx-auto">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-slate-800">Riwayat Transaksi</h1>
-        <p className="text-sm text-slate-500">Log aktivitas keuangan terbaru di sekolah Anda.</p>
+        <p className="text-sm text-slate-500">
+          {profile?.role === 'owner' 
+            ? 'Log aktivitas keuangan global sistem SiKasis.' 
+            : 'Log aktivitas keuangan terbaru di sekolah Anda.'}
+        </p>
       </div>
 
       <div className="space-y-3">
@@ -67,7 +83,14 @@ export default function TransactionHistory() {
                 {getIcon(tx.type)}
               </div>
               <div>
-                <h4 className="text-sm font-bold text-slate-800 uppercase tracking-tight">{getLabel(tx.type)}</h4>
+                <div className="flex items-center gap-2">
+                  <h4 className="text-sm font-bold text-slate-800 uppercase tracking-tight">{getLabel(tx.type)}</h4>
+                  {profile?.role === 'owner' && (
+                    <span className="text-[10px] bg-slate-100 px-1.5 py-0.5 rounded text-slate-500 font-mono">
+                      ID: {tx.schoolId?.substring(0, 8)}...
+                    </span>
+                  )}
+                </div>
                 <p className="text-[10px] text-slate-400 font-mono">
                   {new Date(tx.timestamp).toLocaleString('id-ID')}
                 </p>

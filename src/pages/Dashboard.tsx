@@ -32,7 +32,7 @@ import ClassManagement from './ClassManagement';
 import TransactionHistory from './TransactionHistory';
 
 const OwnerOverview = () => {
-  const [stats, setStats] = React.useState({ schools: 0, students: 0, staff: 0 });
+  const [stats, setStats] = React.useState({ schools: 0, pendingSchools: 0, students: 0, staff: 0 });
 
   React.useEffect(() => {
     const fetchData = async () => {
@@ -41,8 +41,12 @@ const OwnerOverview = () => {
         getDocs(collection(db, 'students')),
         getDocs(collection(db, 'users'))
       ]);
+      
+      const schools = schoolSnap.docs.map(d => d.data());
+      
       setStats({
         schools: schoolSnap.size,
+        pendingSchools: schools.filter(s => s.status === 'pending').length,
         students: studentSnap.size,
         staff: staffSnap.size
       });
@@ -57,11 +61,31 @@ const OwnerOverview = () => {
         <p className="text-slate-500">Statistik platform SiKasis secara keseluruhan.</p>
       </div>
 
-      <div className="grid md:grid-cols-3 gap-6">
+      <div className="grid md:grid-cols-4 gap-6">
         <StatItem icon={<SchoolIcon className="text-brand-teal" />} label="Total Sekolah" value={stats.schools} color="bg-teal-50" />
+        <StatItem icon={<Clock className="text-amber-600" />} label="Sekolah Pending" value={stats.pendingSchools} color="bg-amber-50" />
         <StatItem icon={<UserCircle className="text-emerald-600" />} label="Total Siswa" value={stats.students} color="bg-emerald-50" />
         <StatItem icon={<Users className="text-blue-600" />} label="Total Pengguna" value={stats.staff} color="bg-blue-50" />
       </div>
+
+      {stats.pendingSchools > 0 && (
+        <Card className="p-6 border-l-4 border-amber-500 bg-amber-50">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center">
+                <Clock size={24} />
+              </div>
+              <div>
+                <h3 className="text-lg font-bold text-amber-900">Ada {stats.pendingSchools} Sekolah Menunggu Persetujuan</h3>
+                <p className="text-amber-700">Segera periksa dan aktifkan akun sekolah baru.</p>
+              </div>
+            </div>
+            <Link to="schools">
+              <Button className="bg-amber-600 hover:bg-amber-700">Lihat Daftar Sekolah</Button>
+            </Link>
+          </div>
+        </Card>
+      )}
 
       <Card className="p-8 flex items-center justify-between bg-slate-900 text-white border-none">
         <div>
@@ -715,10 +739,9 @@ export default function Dashboard() {
       case 'owner':
         return [
           { icon: <LayoutDashboard size={20} />, label: 'Overview', path: '' },
-          { icon: <SchoolIcon size={20} />, label: 'Sekolah', path: 'schools' },
-          { icon: <UserCircle size={20} />, label: 'Siswa (Global)', path: 'students' },
+          { icon: <SchoolIcon size={20} />, label: 'Daftar Sekolah', path: 'schools' },
           { icon: <History size={20} />, label: 'Log System', path: 'transactions' },
-          { icon: <Settings size={20} />, label: 'Settings', path: 'settings' },
+          { icon: <Settings size={20} />, label: 'Pengaturan Admin', path: 'settings' },
         ];
       case 'kepala_sekolah':
         return [
