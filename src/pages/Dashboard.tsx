@@ -92,7 +92,9 @@ const OwnerOverview = () => {
           <h3 className="text-xl font-bold">Butuh Bantuan Teknis?</h3>
           <p className="text-slate-400 mt-1">Akses dokumentasi pengembang atau hubungi support.</p>
         </div>
-        <Button className="bg-white text-slate-900 hover:bg-slate-100">Buka Support</Button>
+        <a href="mailto:enjoyvibecode@gmail.com">
+          <Button className="bg-white text-slate-900 hover:bg-slate-100">Buka Support</Button>
+        </a>
       </Card>
     </div>
   );
