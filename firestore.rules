@@ -20,9 +20,13 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
-    function isKepalaSekolah(schoolId) { return isSignedIn() && (isSuperOwner() || (currentUser().schoolId == schoolId && currentUser().role == 'kepala_sekolah')); }
-    function isBendahara(schoolId) { return isSignedIn() && (isSuperOwner() || (currentUser().schoolId == schoolId && currentUser().role == 'bendahara')); }
-    function isTU(schoolId) { return isSignedIn() && (isSuperOwner() || (currentUser().schoolId == schoolId && currentUser().role == 'tu')); }
+    function hasRole(schoolId, roles) {
+      return isSignedIn() && (isSuperOwner() || (currentUser().schoolId == schoolId && (currentUser().role in roles)));
+    }
+
+    function isKepalaSekolah(schoolId) { return hasRole(schoolId, ['owner', 'kepala_sekolah']); }
+    function isBendahara(schoolId) { return hasRole(schoolId, ['owner', 'bendahara']); }
+    function isTU(schoolId) { return hasRole(schoolId, ['owner', 'tu']); }
     function belongsToSchool(schoolId) { return isSignedIn() && (isSuperOwner() || currentUser().schoolId == schoolId); }
 
     function isValidSystemConfig(data) {
@@ -41,14 +45,15 @@ service cloud.firestore {
 
     // Audit Trail: Transactions are IMMUTABLE
     match /transactions/{txId} {
-      allow get: if isSuperOwner() || belongsToSchool(resource.data.schoolId) || true;
-      allow list: if isSuperOwner() || belongsToSchool(resource.data.schoolId) || true; 
+      allow get, list: if isSignedIn() && (isSuperOwner() || currentUser().schoolId == resource.data.schoolId);
       
       allow update, delete: if false;
 
-      allow create: if isSignedIn() && (isSuperOwner() || (belongsToSchool(incoming().schoolId) && 
+      allow create: if isSignedIn() && (isSuperOwner() || (
+                      incoming().schoolId == currentUser().schoolId && 
                       incoming().executorId == request.auth.uid &&
                       incoming().timestamp == request.time &&
+                      incoming().type in ['SETOR_TABUNGAN', 'TARIK_TABUNGAN', 'SETOR_KAS_KELAS', 'TARIK_KAS_KELAS', 'MODAL_TU_MASUK', 'MODAL_TU_KEMBALI'] &&
                       incoming().amount > 0));
     }
 

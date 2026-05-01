@@ -13,6 +13,7 @@ export default function StudentManagement() {
   const [students, setStudents] = useState<Student[]>([]);
   const [classes, setClasses] = useState<ClassData[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedClassId, setSelectedClassId] = useState('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isTxModalOpen, setIsTxModalOpen] = useState(false);
   const [selectedStudentForTx, setSelectedStudentForTx] = useState<Student | null>(null);
@@ -170,10 +171,12 @@ export default function StudentManagement() {
     }
   };
 
-  const filteredStudents = students.filter(s => 
-    s.fullName.toLowerCase().includes(searchTerm.toLowerCase()) || 
-    s.nisn.includes(searchTerm)
-  );
+  const filteredStudents = students.filter(s => {
+    const matchesSearch = s.fullName.toLowerCase().includes(searchTerm.toLowerCase()) || 
+                         s.nisn.includes(searchTerm);
+    const matchesClass = selectedClassId === 'all' || s.classId === selectedClassId;
+    return matchesSearch && matchesClass;
+  });
 
   return (
     <div className="p-4 md:p-8">
@@ -196,15 +199,29 @@ export default function StudentManagement() {
       </div>
 
       <Card className="p-2 mb-6">
-        <div className="relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-          <input 
-            type="text" 
-            placeholder="Cari nama siswa atau NISN..." 
-            className="w-full h-12 pl-12 pr-4 bg-transparent outline-none text-slate-800"
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-          />
+        <div className="flex flex-col md:flex-row gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <input 
+              type="text" 
+              placeholder="Cari nama siswa atau NISN..." 
+              className="w-full h-12 pl-12 pr-4 bg-transparent outline-none text-slate-800"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <div className="w-full md:w-64 border-l md:border-l border-brand-sand/50">
+            <select 
+              className="w-full h-12 px-4 bg-transparent outline-none text-slate-600 font-medium appearance-none cursor-pointer"
+              value={selectedClassId}
+              onChange={e => setSelectedClassId(e.target.value)}
+            >
+              <option value="all">Semua Kelas</option>
+              {classes.map(c => (
+                <option key={c.id} value={c.id}>{c.name}</option>
+              ))}
+            </select>
+          </div>
         </div>
       </Card>
 
