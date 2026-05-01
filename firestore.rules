@@ -100,7 +100,7 @@ service cloud.firestore {
     match /tu_wallets/{walletId} {
       allow read: if belongsToSchool(resource.data.schoolId) || isSuperOwner();
       allow create, update: if belongsToSchool(incoming().schoolId) && 
-                               (isBendahara(incoming().schoolId) || isTU(incoming().schoolId)) &&
+                               (isKepalaSekolah(incoming().schoolId) || isBendahara(incoming().schoolId) || isTU(incoming().schoolId)) &&
                                getAfter(/databases/$(database)/documents/tu_wallets/$(walletId)).data.balance >= 0;
     }
   }

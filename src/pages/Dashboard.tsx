@@ -768,7 +768,7 @@ const TUDashboard = () => {
           </div>
           <h3 className="text-xl font-bold mb-2">Setor Tabungan</h3>
           <p className="text-teal-50/70 text-sm mb-6">Terima uang tabungan dari siswa dan tambahkan ke saldo mereka.</p>
-          <Button onClick={() => { setTxType('TABUNGAN_SETOR'); setIsTxOpen(true); }} className="w-full bg-white text-brand-teal hover:bg-teal-50 border-none">
+          <Button onClick={() => { setTxType('SETOR_TABUNGAN'); setIsTxOpen(true); }} className="w-full bg-white text-brand-teal hover:bg-teal-50 border-none">
             Mulai Setoran
           </Button>
         </Card>
@@ -779,7 +779,7 @@ const TUDashboard = () => {
           </div>
           <h3 className="text-xl font-bold mb-2">Tarik Tabungan</h3>
           <p className="text-blue-50/70 text-sm mb-6">Serahkan uang ke siswa dengan memotong saldo tabungan mereka.</p>
-          <Button onClick={() => { setTxType('TABUNGAN_TARIK'); setIsTxOpen(true); }} className="w-full bg-white text-blue-600 hover:bg-blue-50 border-none">
+          <Button onClick={() => { setTxType('TARIK_TABUNGAN'); setIsTxOpen(true); }} className="w-full bg-white text-blue-600 hover:bg-blue-50 border-none">
             Mulai Penarikan
           </Button>
         </Card>
