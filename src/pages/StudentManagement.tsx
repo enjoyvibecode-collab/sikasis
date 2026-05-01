@@ -59,6 +59,16 @@ export default function StudentManagement() {
       { 'Nama Lengkap': 'Asep Contoh', 'NISN': '12345678', 'WA Siswa': '08123456789', 'WA Orangtua': '08987654321', 'Nama Kelas': 'X RPL 1' }
     ];
     const ws = XLSX.utils.json_to_sheet(template);
+    
+    // Set column widths to prevent overlapping
+    ws['!cols'] = [
+      { wch: 30 }, // Nama Lengkap
+      { wch: 15 }, // NISN
+      { wch: 20 }, // WA Siswa
+      { wch: 20 }, // WA Orangtua
+      { wch: 20 }  // Nama Kelas
+    ];
+
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Template");
     XLSX.writeFile(wb, "Template_Pendaftaran_Siswa.xlsx");
@@ -224,28 +234,30 @@ export default function StudentManagement() {
           <h1 className="text-2xl font-bold text-slate-800">Manajemen Siswa</h1>
           <p className="text-sm text-slate-500">Kelola data siswa dan tabungan di sekolah Anda.</p>
         </div>
-        <div className="flex gap-2 w-full md:w-auto">
-          <Button 
-            variant="outline" 
-            onClick={() => {
-              setIsEditMode(false);
-              setFormData({ fullName: '', nisn: '', whatsappStudent: '', whatsappParent: '', classId: '' });
-              setIsModalOpen(true);
-            }} 
-            className="gap-2 flex-1 md:flex-none border-brand-teal text-brand-teal"
-          >
-            <UserPlus size={18} /> Tambah
-          </Button>
-          <Button variant="outline" onClick={downloadTemplate} className="gap-2 flex-1 md:flex-none">
-            <Download size={18} /> Template
-          </Button>
-          <label className="flex-1 md:flex-none">
-            <div className="bg-brand-teal text-white px-4 py-2 rounded-xl flex items-center justify-center gap-2 cursor-pointer hover:bg-teal-700 transition-colors h-10 font-bold text-sm">
-              <Upload size={18} /> {loading ? 'Memproses...' : 'Impor Excel'}
-            </div>
-            <input type="file" className="hidden" accept=".xlsx, .xls" onChange={handleFileUpload} disabled={loading} />
-          </label>
-        </div>
+        {(profile?.role === 'owner' || profile?.role === 'kepala_sekolah' || profile?.role === 'bendahara') && (
+          <div className="flex gap-2 w-full md:w-auto">
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setIsEditMode(false);
+                setFormData({ fullName: '', nisn: '', whatsappStudent: '', whatsappParent: '', classId: '' });
+                setIsModalOpen(true);
+              }} 
+              className="gap-2 flex-1 md:flex-none border-brand-teal text-brand-teal"
+            >
+              <UserPlus size={18} /> Tambah
+            </Button>
+            <Button variant="outline" onClick={downloadTemplate} className="gap-2 flex-1 md:flex-none">
+              <Download size={18} /> Template
+            </Button>
+            <label className="flex-1 md:flex-none">
+              <div className="bg-brand-teal text-white px-4 py-2 rounded-xl flex items-center justify-center gap-2 cursor-pointer hover:bg-teal-700 transition-colors h-10 font-bold text-sm">
+                <Upload size={18} /> {loading ? 'Memproses...' : 'Impor Excel'}
+              </div>
+              <input type="file" className="hidden" accept=".xlsx, .xls" onChange={handleFileUpload} disabled={loading} />
+            </label>
+          </div>
+        )}
       </div>
 
       <Card className="p-2 mb-6">
@@ -289,43 +301,48 @@ export default function StudentManagement() {
                 </p>
               </div>
             </div>
-            <div className="flex items-center justify-between md:justify-end gap-6 border-t md:border-none pt-4 md:pt-0">
+            <div className="flex items-center justify-between md:justify-end gap-4 border-t md:border-none pt-4 md:pt-0">
               <div className="text-right">
                 <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Tabungan</p>
                 <div className="flex items-center gap-2">
                   <p className="font-display font-bold text-brand-teal">Rp {student.balanceSavings.toLocaleString('id-ID')}</p>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="h-7 px-2 text-[10px] bg-brand-teal/10 text-brand-teal border-none"
-                    onClick={() => {
-                      setSelectedStudentForTx(student);
-                      setIsTxModalOpen(true);
-                    }}
-                  >
-                    <Wallet size={12} className="mr-1" />
-                    TRANSAKSI
-                  </Button>
+                  {(profile?.role === 'tu' || profile?.role === 'owner' || profile?.role === 'bendahara' || profile?.role === 'kepala_sekolah') && (
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="h-7 px-2 text-[10px] bg-brand-teal/10 text-brand-teal border-none font-bold"
+                      onClick={() => {
+                        setSelectedStudentForTx(student);
+                        setIsTxModalOpen(true);
+                      }}
+                    >
+                      <Wallet size={12} className="mr-1" />
+                      TRANSAKSI
+                    </Button>
+                  )}
                 </div>
               </div>
-               <div className="flex items-center gap-2">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="h-9 w-9 p-0 text-slate-400 hover:text-brand-teal border-none"
-                  onClick={() => editStudent(student)}
-                >
-                  <Edit size={18} />
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  className="h-9 w-9 p-0 text-slate-400 hover:text-rose-500 border-none"
-                  onClick={() => removeStudent(student.id)}
-                >
-                  <Trash2 size={18} />
-                </Button>
-              </div>
+              
+              {(profile?.role === 'owner' || profile?.role === 'kepala_sekolah' || profile?.role === 'bendahara') && (
+                <div className="flex items-center gap-1 border-l pl-4 border-slate-100">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="h-9 px-3 text-slate-500 hover:text-brand-teal border-none flex items-center gap-1 text-xs font-bold"
+                    onClick={() => editStudent(student)}
+                  >
+                    <Edit size={16} /> <span className="hidden sm:inline">Edit</span>
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="h-9 w-9 p-0 text-slate-300 hover:text-rose-500 border-none items-center justify-center flex transition-colors"
+                    onClick={() => removeStudent(student.id)}
+                  >
+                    <Trash2 size={16} />
+                  </Button>
+                </div>
+              )}
             </div>
           </Card>
         ))}
