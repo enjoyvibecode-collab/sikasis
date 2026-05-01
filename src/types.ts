@@ -1,5 +1,17 @@
 export type UserRole = 'owner' | 'kepala_sekolah' | 'bendahara' | 'tu' | 'bendahara_kelas' | 'siswa';
 
+export interface User {
+  id: string;
+  email: string;
+  fullName: string;
+  role: UserRole;
+  schoolId: string;
+  classId?: string; // For bendahara_kelas
+  nisn?: string;    // For siswa
+  authorizedGrades?: string[]; // e.g. ['7'], ['8'], ['9'] for TU staff
+  createdAt: string;
+}
+
 export type TransactionType = 
   | 'SETOR_TABUNGAN' 
   | 'TARIK_TABUNGAN' 

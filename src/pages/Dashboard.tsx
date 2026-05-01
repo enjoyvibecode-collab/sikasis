@@ -45,6 +45,7 @@ import StaffManagement from './StaffManagement';
 import StudentManagement from './StudentManagement';
 import ClassManagement from './ClassManagement';
 import TransactionHistory from './TransactionHistory';
+import TransactionCounter from './TransactionCounter';
 
 const OwnerOverview = () => {
   const [stats, setStats] = React.useState({ schools: 0, pendingSchools: 0, students: 0, staff: 0 });
@@ -997,12 +998,14 @@ export default function Dashboard() {
       case 'bendahara':
         return [
           { icon: <LayoutDashboard size={20} />, label: 'Kas Utama', path: '/dashboard' },
+          { icon: <Plus size={20} />, label: 'Loket Transaksi', path: '/dashboard/transactions/counter' },
           { icon: <UserCircle size={20} />, label: 'Data Siswa', path: '/dashboard/students' },
           { icon: <History size={20} />, label: 'Riwayat Kas', path: '/dashboard/transactions' },
         ];
       case 'tu':
         return [
           { icon: <LayoutDashboard size={20} />, label: 'Loket TU', path: '/dashboard' },
+          { icon: <Plus size={20} />, label: 'Loket Transaksi', path: '/dashboard/transactions/counter' },
           { icon: <UserCircle size={20} />, label: 'Cari Siswa', path: '/dashboard/students' },
           { icon: <History size={20} />, label: 'Riwayat Saya', path: '/dashboard/transactions' },
         ];
@@ -1037,6 +1040,7 @@ export default function Dashboard() {
         <Route path="students" element={<StudentManagement />} />
         <Route path="classes" element={<ClassManagement />} />
         <Route path="transactions" element={<TransactionHistory />} />
+        <Route path="transactions/counter" element={<TransactionCounter />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     );

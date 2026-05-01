@@ -15,11 +15,19 @@ export default function StaffManagement() {
     email: '',
     fullName: '',
     role: 'tu' as UserRole,
-    classId: '' as string | undefined
+    classId: '' as string | undefined,
+    authorizedGrades: [] as string[]
   });
   const [classes, setClasses] = useState<any[]>([]);
 
-  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const toggleGrade = (grade: string) => {
+    setFormData(prev => ({
+      ...prev,
+      authorizedGrades: prev.authorizedGrades.includes(grade)
+        ? prev.authorizedGrades.filter(g => g !== grade)
+        : [...prev.authorizedGrades, grade]
+    }));
+  };
 
   useEffect(() => {
     if (!profile?.schoolId) return;
@@ -28,7 +36,7 @@ export default function StaffManagement() {
       where('schoolId', '==', profile.schoolId)
     );
     const unsub = onSnapshot(q, (snapshot) => {
-      setStaff(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as UserProfile)));
+      setStaff(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as any)));
     });
 
     const cq = query(collection(db, 'classes'), where('schoolId', '==', profile.schoolId));
@@ -50,13 +58,14 @@ export default function StaffManagement() {
         role: formData.role,
         schoolId: profile?.schoolId,
         classId: formData.classId,
+        authorizedGrades: formData.authorizedGrades,
         status: 'active',
         inviteEmail: formData.email 
       });
       
       setIsModalOpen(false);
-      setFormData({ email: '', fullName: '', role: 'tu', classId: '' });
-      alert('Staf berhasil diundang. Minta mereka login menggunakan email tersebut.');
+      setFormData({ email: '', fullName: '', role: 'tu', classId: '', authorizedGrades: [] });
+      alert('Staf berhasil diundang.');
     } catch (err: any) {
       console.error(err);
       alert('Gagal menambah staf: ' + err.message);
@@ -114,6 +123,15 @@ export default function StaffManagement() {
               <div className="flex items-center gap-2 text-sm text-slate-500">
                 <Mail size={14} /> <span className="truncate">{member.inviteEmail || member.username + '@school.com'}</span>
               </div>
+              {member.authorizedGrades && member.authorizedGrades.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {member.authorizedGrades.map(g => (
+                    <span key={g} className="text-[9px] font-bold bg-blue-50 text-blue-600 px-2 py-0.5 rounded-full border border-blue-100">
+                      KELAS {g}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
 
             {member.uid !== profile?.uid && member.role !== 'owner' && (
@@ -178,6 +196,25 @@ export default function StaffManagement() {
               <option value="bendahara_kelas">Bendahara Kelas (Wali/Siswa)</option>
             </select>
           </div>
+          {formData.role === 'tu' && (
+            <div>
+              <label className="text-sm font-bold text-slate-700 mb-2 block">Wewenang Tingkat Kelas (Khusus TU)</label>
+              <div className="flex gap-4">
+                {['7', '8', '9'].map(grade => (
+                  <label key={grade} className="flex items-center gap-2 cursor-pointer p-3 border rounded-xl flex-1 hover:bg-slate-50 transition-colors">
+                    <input 
+                      type="checkbox" 
+                      className="w-4 h-4 text-brand-teal rounded"
+                      checked={formData.authorizedGrades.includes(grade)}
+                      onChange={() => toggleGrade(grade)}
+                    />
+                    <span className="text-sm font-bold">Lvl {grade}</span>
+                  </label>
+                ))}
+              </div>
+              <p className="text-[10px] text-slate-400 mt-2 italic font-medium">TU hanya bisa melihat siswa/kelas sesuai wewenang ini.</p>
+            </div>
+          )}
           {formData.role === 'bendahara_kelas' && (
             <div>
               <label className="text-sm font-bold text-slate-700 mb-1 block">Tugas di Kelas</label>
