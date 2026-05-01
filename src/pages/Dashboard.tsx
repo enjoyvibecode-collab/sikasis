@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAuth } from '../context/AuthContext';
-import { Routes, Route, Link, useNavigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Link, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
   School as SchoolIcon, 
@@ -788,12 +788,13 @@ export default function Dashboard() {
           profile?.role === 'bendahara_kelas' ? <BendaharaKelasDashboard /> :
           <div className="p-8">Akses Terbatas</div>
         } />
-        <Route path="/schools" element={<OwnerSchools />} />
-        <Route path="/settings" element={<OwnerSettings />} />
-        <Route path="/staff" element={<StaffManagement />} />
-        <Route path="/students" element={<StudentManagement />} />
-        <Route path="/classes" element={<ClassManagement />} />
-        <Route path="/transactions" element={<TransactionHistory />} />
+        <Route path="schools" element={<OwnerSchools />} />
+        <Route path="settings" element={<OwnerSettings />} />
+        <Route path="staff" element={<StaffManagement />} />
+        <Route path="students" element={<StudentManagement />} />
+        <Route path="classes" element={<ClassManagement />} />
+        <Route path="transactions" element={<TransactionHistory />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     );
   };
