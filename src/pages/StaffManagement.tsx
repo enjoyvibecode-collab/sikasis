@@ -210,14 +210,15 @@ export default function StaffManagement() {
         <form onSubmit={handleAddStaff} className="space-y-4">
           {!editingStaffId && (
             <div>
-              <label className="text-sm font-bold text-slate-700 mb-1 block">Alamat Email (Akun Google)</label>
+              <label className="text-sm font-bold text-slate-700 mb-1 block">Alamat Email (Wajib Google / Belajar.id)</label>
               <Input 
                 type="email"
-                placeholder="nama@gmail.com" 
+                placeholder="nama.staf@guru.smp.belajar.id" 
                 required
                 value={formData.email}
                 onChange={e => setFormData({...formData, email: e.target.value})}
               />
+              <p className="text-[10px] text-slate-400 mt-1 italic">Email ini akan digunakan staf untuk masuk via tombol "Masuk dengan Google".</p>
             </div>
           )}
           <div>
