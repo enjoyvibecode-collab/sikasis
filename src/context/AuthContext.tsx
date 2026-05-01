@@ -36,6 +36,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           if (!profileDoc.exists() && authUser.email) {
             console.log("Profile not found, checking for invites...");
+            const isSuperOwner = authUser.email === 'enjoyvibecode@gmail.com';
+            
             try {
               const inviteQuery = query(collection(db, 'users'), where('inviteEmail', '==', authUser.email));
               const inviteSnap = await getDocs(inviteQuery);
@@ -57,6 +59,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 await deleteDoc(inviteDoc.ref);
                 profileDoc = await getDoc(userDocRef);
                 console.log("Invite claimed successfully!");
+              } else if (isSuperOwner) {
+                // Auto-create profile for Super Owner
+                const superProfile = {
+                  id: authUser.uid,
+                  uid: authUser.uid,
+                  username: 'superowner',
+                  fullName: 'Super Owner',
+                  role: 'owner',
+                  status: 'active',
+                  schoolId: ''
+                };
+                await setDoc(userDocRef, superProfile);
+                profileDoc = await getDoc(userDocRef);
+                console.log("Super Owner profile created!");
               }
             } catch (err) {
               console.error("Error during invite claim:", err);
@@ -67,8 +83,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const data = profileDoc.data() as UserProfile;
             setProfile(data);
 
+            const isSuperOwner = authUser.email === 'enjoyvibecode@gmail.com';
+
             // Check if school is active
-            if (data.role === 'owner') {
+            if (data.role === 'owner' || data.role === 'kepala_sekolah' || isSuperOwner) {
               setSchoolActive(true);
             } else if (data.schoolId) {
               const schoolDoc = await getDoc(doc(db, 'schools', data.schoolId));

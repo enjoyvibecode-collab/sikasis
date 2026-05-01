@@ -38,7 +38,7 @@ export default function RegisterSchool() {
       await setDoc(doc(db, 'schools', schoolId), {
         name: formData.schoolName,
         address: formData.schoolAddress,
-        status: 'pending',
+        status: 'active',
         createdAt: serverTimestamp(),
         ownerEmail: formData.email
       });

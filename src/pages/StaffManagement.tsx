@@ -19,6 +19,8 @@ export default function StaffManagement() {
   });
   const [classes, setClasses] = useState<any[]>([]);
 
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+
   useEffect(() => {
     if (!profile?.schoolId) return;
     const q = query(
@@ -39,11 +41,8 @@ export default function StaffManagement() {
     e.preventDefault();
     setLoading(true);
     try {
-      // Logic for adding staff (using email as ID for simplicity or separate profile)
-      // Note: In real app, you'd use Firebase Admin or a sign up flow. 
-      // Here we create a document that the staff will "claim" when they login with that email.
       const username = formData.email.split('@')[0];
-      const newStaffId = `staff_${Date.now()}`; // Just for demo, usually it's UID from Auth
+      const newStaffId = `staff_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`; 
       
       await setDoc(doc(db, 'users', newStaffId), {
         username,
@@ -52,26 +51,26 @@ export default function StaffManagement() {
         schoolId: profile?.schoolId,
         classId: formData.classId,
         status: 'active',
-        inviteEmail: formData.email // For matching on login
+        inviteEmail: formData.email 
       });
       
       setIsModalOpen(false);
       setFormData({ email: '', fullName: '', role: 'tu', classId: '' });
-    } catch (err) {
+      alert('Staf berhasil diundang. Minta mereka login menggunakan email tersebut.');
+    } catch (err: any) {
       console.error(err);
+      alert('Gagal menambah staf: ' + err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const removeStaff = async (id: string) => {
-    console.log('Attempting to remove staff with ID:', id);
-    if (!confirm('Hapus staf ini? Semua akses untuk akun ini akan dicabut secara permanen.')) return;
+  const removeStaff = async () => {
+    if (!deleteId) return;
     setLoading(true);
     try {
-      console.log('Sending delete request to Firestore for ID:', id);
-      await deleteDoc(doc(db, 'users', id));
-      alert('Akses berhasil dihapus!');
+      await deleteDoc(doc(db, 'users', deleteId));
+      setDeleteId(null);
     } catch (err: any) {
       console.error('Delete error:', err);
       alert(`Gagal menghapus: ${err.message || 'Periksa izin database'}`);
@@ -113,16 +112,16 @@ export default function StaffManagement() {
 
             <div className="space-y-2 mb-6">
               <div className="flex items-center gap-2 text-sm text-slate-500">
-                <Mail size={14} /> <span>{member.inviteEmail || member.username + '@school.com'}</span>
+                <Mail size={14} /> <span className="truncate">{member.inviteEmail || member.username + '@school.com'}</span>
               </div>
             </div>
 
-            {member.role !== 'kepala_sekolah' && (
+            {member.uid !== profile?.uid && member.role !== 'owner' && (
                <Button 
                 variant="outline" 
                 size="sm" 
                 className="w-full border-rose-100 text-rose-500 hover:bg-rose-50 hover:border-rose-200"
-                onClick={() => removeStaff(member.id)}
+                onClick={() => setDeleteId(member.id)}
                >
                 <Trash2 size={14} className="mr-2" /> Hapus Akses
               </Button>
@@ -130,6 +129,21 @@ export default function StaffManagement() {
           </Card>
         ))}
       </div>
+
+      {/* Modal Hapus Konfirmasi */}
+      <Modal isOpen={!!deleteId} onClose={() => setDeleteId(null)} title="Konfirmasi Hapus">
+        <div className="space-y-6">
+          <p className="text-slate-600">
+            Apakah Anda yakin ingin menghapus akses staf ini? Akun ini tidak akan bisa masuk lagi ke sistem sekolah Anda.
+          </p>
+          <div className="flex gap-4">
+            <Button variant="secondary" className="flex-1" onClick={() => setDeleteId(null)}>Batal</Button>
+            <Button variant="outline" className="flex-1 bg-rose-600 text-white border-none hover:bg-rose-700" onClick={removeStaff} disabled={loading}>
+              {loading ? 'Menghapus...' : 'Ya, Hapus Akses'}
+            </Button>
+          </div>
+        </div>
+      </Modal>
 
       <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Undang Staf Baru">
         <form onSubmit={handleAddStaff} className="space-y-4">

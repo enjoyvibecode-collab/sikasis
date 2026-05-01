@@ -22,7 +22,7 @@ function ProtectedRoute({ children, requiredRole }: { children: React.ReactNode,
 
   if (!user) return <Navigate to="/login" />;
   
-  if (profile?.role !== 'owner' && !schoolActive) {
+  if (profile?.role !== 'owner' && profile?.role !== 'kepala_sekolah' && !schoolActive) {
     return <div className="h-screen flex flex-col items-center justify-center p-6 text-center">
       <h1 className="text-2xl text-rose-600 mb-2">Sekolah Belum Aktif</h1>
       <p className="text-slate-600">Akun sekolah Anda sedang menunggu persetujuan dari Owner Aplikasi.</p>
