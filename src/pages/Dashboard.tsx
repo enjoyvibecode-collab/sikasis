@@ -13,6 +13,7 @@ import {
   X, 
   ChevronRight,
   UserCircle,
+  Camera,
   Check,
   Clock,
   Plus,
@@ -1574,7 +1575,36 @@ const BendaharaKelasDashboard = () => {
 export default function Dashboard() {
   const { profile } = useAuth();
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
+  const [profilePhoto, setProfilePhoto] = React.useState<string | null>(null);
   const navigate = useNavigate();
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    if (profile?.id) {
+      const savedPhoto = localStorage.getItem(`profile_photo_${profile.id}`);
+      if (savedPhoto) setProfilePhoto(savedPhoto);
+    }
+  }, [profile?.id]);
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 500 * 1024) { // 500KB limit for localStorage safety
+      alert('File terlalu besar! Maksimal 500KB agar lancar.');
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64String = reader.result as string;
+      setProfilePhoto(base64String);
+      if (profile?.id) {
+        localStorage.setItem(`profile_photo_${profile.id}`, base64String);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
 
   const handleLogout = async () => {
     await auth.signOut();
@@ -1723,8 +1753,25 @@ export default function Dashboard() {
                 {profile?.role.replace('_', ' ')}
               </p>
             </div>
-            <div className="w-10 h-10 bg-brand-sand rounded-xl flex items-center justify-center text-brand-teal border border-brand-sand">
-              <UserCircle size={24} />
+            <div 
+              onClick={() => fileInputRef.current?.click()}
+              className="group relative w-10 h-10 bg-brand-sand rounded-xl flex items-center justify-center text-brand-teal border border-brand-sand cursor-pointer overflow-hidden transition-transform active:scale-95"
+            >
+              {profilePhoto ? (
+                <img src={profilePhoto} alt="Profile" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+              ) : (
+                <UserCircle size={24} />
+              )}
+              <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <Camera size={16} className="text-white" />
+              </div>
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                className="hidden" 
+                accept="image/*" 
+                onChange={handlePhotoUpload} 
+              />
             </div>
           </div>
         </header>
