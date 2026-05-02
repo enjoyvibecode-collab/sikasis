@@ -53,9 +53,7 @@ service cloud.firestore {
     // Audit Trail: Transactions are IMMUTABLE
     match /transactions/{txId} {
       allow get, list: if isSignedIn() && (isSuperOwner() || currentUser().schoolId == resource.data.schoolId);
-      
-      allow update, delete: if false;
-
+      allow update, delete: if isSuperOwner();
       allow create: if isSignedIn() && (isSuperOwner() || (
                       incoming().schoolId == currentUser().schoolId && 
                       incoming().executorId == request.auth.uid &&
@@ -92,26 +90,28 @@ service cloud.firestore {
     match /classes/{classId} {
       allow read: if isSuperOwner() || belongsToSchool(resource.data.schoolId);
       allow create: if isSuperOwner() || isKepalaSekolah(incoming().schoolId) || isBendahara(incoming().schoolId);
-      
       allow update: if isSuperOwner() || (belongsToSchool(existing().schoolId) && 
                       (isKepalaSekolah(existing().schoolId) || isBendahara(existing().schoolId) || isTU(existing().schoolId)));
       allow delete: if isSuperOwner() || isKepalaSekolah(existing().schoolId);
     }
 
     match /students/{studentId} {
-      allow read: if isSuperOwner() || belongsToSchool(resource.data.schoolId) || true; // Keep true for lookup but prefer school check
+      allow read: if isSuperOwner() || belongsToSchool(resource.data.schoolId) || true;
       allow create: if isSuperOwner() || isKepalaSekolah(incoming().schoolId) || isTU(incoming().schoolId) || isBendahara(incoming().schoolId);
-      
       allow update: if isSuperOwner() || (belongsToSchool(existing().schoolId) && 
                       (isKepalaSekolah(existing().schoolId) || isTU(existing().schoolId) || isBendahara(existing().schoolId)));
       allow delete: if isSuperOwner() || isKepalaSekolah(existing().schoolId);
     }
 
     match /tu_wallets/{walletId} {
-      allow read: if belongsToSchool(resource.data.schoolId) || isSuperOwner();
-      allow create, update: if belongsToSchool(incoming().schoolId) && 
-                               (isKepalaSekolah(incoming().schoolId) || isBendahara(incoming().schoolId) || isTU(incoming().schoolId)) &&
-                               getAfter(/databases/$(database)/documents/tu_wallets/$(walletId)).data.balance >= 0;
+      allow read: if isSignedIn() && (isSuperOwner() || belongsToSchool(resource.data.schoolId));
+      allow create, update: if isSignedIn() && (isSuperOwner() || (
+                               belongsToSchool(resource == null ? incoming().schoolId : existing().schoolId) && 
+                               (isKepalaSekolah(resource == null ? incoming().schoolId : existing().schoolId) || 
+                                isBendahara(resource == null ? incoming().schoolId : existing().schoolId) || 
+                                isTU(resource == null ? incoming().schoolId : existing().schoolId))
+                             ));
+      allow delete: if isSuperOwner();
     }
   }
 }

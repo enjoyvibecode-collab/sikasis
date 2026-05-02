@@ -39,7 +39,8 @@ import {
   setDoc, 
   writeBatch,
   orderBy,
-  limit 
+  limit,
+  serverTimestamp 
 } from 'firebase/firestore';
 import { Card } from '../components/UI';
 import type { School, Student, ClassData } from '../types';
@@ -349,8 +350,59 @@ const KepalaSekolahDashboard = () => {
         </div>
         <div className="text-right hidden md:block">
           {(profile?.role === 'owner' || profile?.role === 'kepala_sekolah') && (
-            <>
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Status Penutupan Buku</p>
+            <div className="flex gap-2">
+              <Button 
+                size="sm" 
+                variant="outline"
+                className="h-9 gap-2 font-bold border-rose-200 text-rose-600 hover:bg-rose-50"
+                onClick={async () => {
+                  if (!window.confirm('PERINGATAN KERAS: Fitur ini akan menghapus SELURUH data Siswa, Kelas, dan Transaksi di sekolah ini. Saldo akan direset ke nol. Gunakan hanya untuk memulai simulasi baru dari awal. Apakah Anda yakin?')) return;
+                  if (!window.confirm('KONFIRMASI KEDUA: Data yang dihapus tidak bisa dikembalikan. Lanjutkan hapus permanen?')) return;
+                  
+                  setLoading(true);
+                  try {
+                    const batch = writeBatch(db);
+                    
+                    // 1. Fetch and delete students
+                    const studentsSnap = await getDocs(query(collection(db, 'students'), where('schoolId', '==', profile!.schoolId!)));
+                    studentsSnap.forEach(d => batch.delete(doc(db, 'students', d.id)));
+                    
+                    // 2. Fetch and delete classes
+                    const classesSnap = await getDocs(query(collection(db, 'classes'), where('schoolId', '==', profile!.schoolId!)));
+                    classesSnap.forEach(d => batch.delete(doc(db, 'classes', d.id)));
+                    
+                    // 3. Fetch and delete transactions
+                    const txSnap = await getDocs(query(collection(db, 'transactions'), where('schoolId', '==', profile!.schoolId!)));
+                    txSnap.forEach(d => batch.delete(doc(db, 'transactions', d.id)));
+                    
+                    // 4. Reset school
+                    batch.update(doc(db, 'schools', profile!.schoolId!), {
+                      centralBalance: 0,
+                      isClosingAuthorizedByPrincipal: false,
+                      academicYear: '2025/2026',
+                      semester: 'Ganjil'
+                    });
+
+                    // 5. Reset TU Wallets
+                    const tuWSnap = await getDocs(collection(db, 'tu_wallets'));
+                    tuWSnap.forEach(d => {
+                      if (d.id.startsWith(profile!.schoolId! + '_')) {
+                        batch.update(doc(db, 'tu_wallets', d.id), { balance: 0 });
+                      }
+                    });
+
+                    await batch.commit();
+                    alert('BERHASIL: Semua data sekolah telah dibersihkan. Anda bisa memulai simulasi baru.');
+                  } catch (err: any) {
+                    console.error(err);
+                    alert('Gagal reset: ' + err.message);
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+              >
+                RESET DATA
+              </Button>
               <Button 
                 size="sm" 
                 variant={school?.isClosingAuthorizedByPrincipal ? "default" : "outline"}
@@ -373,7 +425,7 @@ const KepalaSekolahDashboard = () => {
                 {school?.isClosingAuthorizedByPrincipal ? <Check size={16} /> : <AlertTriangle size={16} />}
                 {school?.isClosingAuthorizedByPrincipal ? 'IZIN DIBERIKAN' : 'BERI IZIN TUTUP BUKU'}
               </Button>
-            </>
+            </div>
           )}
         </div>
       </div>
@@ -919,7 +971,10 @@ const BendaharaDashboard = () => {
                         tuWallets.forEach(w => {
                           if (w.balance > 0) {
                             totalRecovered += w.balance;
-                            batch.update(doc(db, 'tu_wallets', w.id), { balance: 0 });
+                            batch.update(doc(db, 'tu_wallets', w.id), { 
+                              balance: 0,
+                              schoolId: profile!.schoolId! // Ensure rule belongsToSchool(incoming().schoolId) passes
+                            });
                           }
                         });
                         
@@ -938,7 +993,8 @@ const BendaharaDashboard = () => {
                             amount: totalRecovered,
                             type: 'AUDIT_ADJUSTMENT_IN',
                             description: 'Penarikan Paksa Modal TU (Audit/Tutup Buku)',
-                            timestamp: serverTimestamp()
+                            timestamp: serverTimestamp(),
+                            status: 'success'
                           });
                         }
                         
