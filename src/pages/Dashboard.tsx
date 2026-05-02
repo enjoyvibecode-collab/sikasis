@@ -521,6 +521,8 @@ const BendaharaDashboard = () => {
   }, [profile?.schoolId]);
 
   const totalTuBalance = tuWallets.reduce((acc, w) => acc + (w.balance || 0), 0);
+  const totalLiabilities = stats.totalSavings + stats.totalClassesCash;
+  const netCashPosition = (school?.centralBalance || 0) - totalLiabilities;
 
   const handleTutupBuku = async () => {
     if (totalTuBalance > 0) {
@@ -711,7 +713,7 @@ const BendaharaDashboard = () => {
         </div>
       </Card>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-6">
         <Card className="p-6 bg-white shadow-sm flex flex-col items-center">
           <div className="w-10 h-10 bg-teal-50 text-brand-teal rounded-xl flex items-center justify-center mb-3">
             <Wallet size={20} />
@@ -726,6 +728,19 @@ const BendaharaDashboard = () => {
           </div>
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Kas Kelas</p>
           <p className="text-lg font-bold text-slate-800 mt-1">Rp {(stats.totalClassesCash || 0).toLocaleString('id-ID')}</p>
+        </Card>
+
+        <Card className={`p-6 shadow-sm border-none flex flex-col items-center text-center ${netCashPosition < 0 ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'}`}>
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${netCashPosition < 0 ? 'bg-rose-100' : 'bg-emerald-100'}`}>
+             <ShieldCheck size={20} />
+          </div>
+          <p className="text-[10px] font-bold uppercase tracking-widest opacity-60">Status Keamanan Kas</p>
+          <p className="text-sm font-bold mt-1">
+            {netCashPosition < 0 ? 'DEFISIT Kas Riil' : 'Kas Aman / Sinkron'}
+          </p>
+          <p className="text-[11px] font-medium mt-1">
+            Selisih: Rp {Math.abs(netCashPosition).toLocaleString('id-ID')}
+          </p>
         </Card>
 
         <Card className="p-6 bg-white shadow-sm flex flex-col items-center justify-center lg:col-span-1 col-span-1">

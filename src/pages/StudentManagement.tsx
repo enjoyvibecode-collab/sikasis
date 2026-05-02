@@ -173,10 +173,14 @@ export default function StudentManagement() {
     try {
       const studentId = isEditMode && editingId ? editingId : `std_${formData.nisn || Date.now()}`;
       const className = classes.find(c => c.id === formData.classId)?.name || 'Umum';
+      const balanceVal = parseInt(formData.balanceSavings as any) || 0;
       
       const payload: any = {
-        ...formData,
-        balanceSavings: formData.balanceSavings ? parseInt(formData.balanceSavings as any) : 0,
+        fullName: formData.fullName,
+        nisn: formData.nisn,
+        whatsappStudent: formData.whatsappStudent,
+        whatsappParent: formData.whatsappParent,
+        classId: formData.classId,
         className,
         schoolId: profile?.schoolId,
         status: 'active',
@@ -185,9 +189,20 @@ export default function StudentManagement() {
 
       if (!isEditMode) {
         payload.createdAt = new Date().toISOString();
+        payload.balanceSavings = balanceVal;
+        
+        // Use atomic transaction for registration with initial balance
+        await executeAtomicTransaction({
+          schoolId: profile!.schoolId!,
+          amount: balanceVal,
+          type: 'INISIALISASI_TABUNGAN_SISWA',
+          studentId: studentId,
+          notes: `Saldo awal pendaftaran siswa: ${formData.fullName}`
+        }, payload);
+      } else {
+        // Just update metadata if edit mode (balance adjustment handled via counter)
+        await setDoc(doc(db, 'students', studentId), payload, { merge: true });
       }
-
-      await setDoc(doc(db, 'students', studentId), payload, { merge: true });
       
       setIsModalOpen(false);
       setFormData({ fullName: '', nisn: '', whatsappStudent: '', whatsappParent: '', classId: '', balanceSavings: '0' });

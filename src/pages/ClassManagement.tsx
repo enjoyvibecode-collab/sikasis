@@ -35,12 +35,28 @@ export default function ClassManagement() {
     setLoading(true);
     try {
       const classId = `class_${Date.now()}`;
-      await setDoc(doc(db, 'classes', classId), {
+      const bal = parseInt(initialBalance) || 0;
+      const classData = {
         schoolId: profile?.schoolId,
         name: newClassName,
-        balanceCash: parseInt(initialBalance) || 0,
-        status: 'active'
-      });
+        balanceCash: bal,
+        status: 'active',
+        createdAt: new Date().toISOString()
+      };
+
+      if (bal > 0) {
+        // Sync with central balance on registration
+        await executeAtomicTransaction({
+          schoolId: profile!.schoolId!,
+          classId: classId,
+          amount: bal,
+          type: 'INISIALISASI_KAS_KELAS',
+          notes: `Saldo awal kas kelas: ${newClassName}`
+        }, classData);
+      } else {
+        await setDoc(doc(db, 'classes', classId), classData);
+      }
+
       setIsModalOpen(false);
       setNewClassName('');
       setInitialBalance('0');
