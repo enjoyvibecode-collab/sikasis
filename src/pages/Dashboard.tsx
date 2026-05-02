@@ -376,24 +376,27 @@ const KepalaSekolahDashboard = () => {
                     const txSnap = await getDocs(query(collection(db, 'transactions'), where('schoolId', '==', profile!.schoolId!)));
                     txSnap.forEach(d => batch.delete(doc(db, 'transactions', d.id)));
                     
-                    // 4. Reset school
+                    // 4. Fetch and delete announcements (Optional clean up)
+                    const annSnap = await getDocs(query(collection(db, 'announcements'), where('schoolId', '==', profile!.schoolId!)));
+                    annSnap.forEach(d => batch.delete(doc(db, 'announcements', d.id)));
+                    
+                    // 5. Reset school
                     batch.update(doc(db, 'schools', profile!.schoolId!), {
                       centralBalance: 0,
                       isClosingAuthorizedByPrincipal: false,
                       academicYear: '2025/2026',
-                      semester: 'Ganjil'
+                      semester: 'Ganjil',
+                      lastClosing: null
                     });
 
-                    // 5. Reset TU Wallets
-                    const tuWSnap = await getDocs(collection(db, 'tu_wallets'));
+                    // 6. Reset TU Wallets
+                    const tuWSnap = await getDocs(query(collection(db, 'tu_wallets'), where('schoolId', '==', profile!.schoolId!)));
                     tuWSnap.forEach(d => {
-                      if (d.id.startsWith(profile!.schoolId! + '_')) {
-                        batch.update(doc(db, 'tu_wallets', d.id), { balance: 0 });
-                      }
+                      batch.update(doc(db, 'tu_wallets', d.id), { balance: 0 });
                     });
 
                     await batch.commit();
-                    alert('BERHASIL: Semua data sekolah telah dibersihkan. Anda bisa memulai simulasi baru.');
+                    alert('SISTEM DIBERSIHKAN: Semua data operasional telah dihapus. Struktur Organisasi (Staf) tetap dipertahankan. Siap untuk presentasi!');
                   } catch (err: any) {
                     console.error(err);
                     alert('Gagal reset: ' + err.message);
