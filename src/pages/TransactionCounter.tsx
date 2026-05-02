@@ -32,6 +32,8 @@ export default function TransactionCounter() {
     const walletRef = doc(db, 'tu_wallets', `${profile.schoolId}_${profile.uid}`);
     const unsubWallet = onSnapshot(walletRef, (snap) => {
       if (snap.exists()) setTuWallet(snap.data());
+    }, (error) => {
+      console.warn("Wallet listener error:", error);
     });
 
     let studentQ = query(
@@ -58,6 +60,8 @@ export default function TransactionCounter() {
       }
       
       setStudents(data);
+    }, (error) => {
+      console.error("Students listener error:", error);
     });
 
     const unsubClasses = onSnapshot(classQ, (snapshot) => {
@@ -85,6 +89,8 @@ export default function TransactionCounter() {
         const stillExists = data.some(c => c.id === prevId);
         return stillExists ? prevId : '';
       });
+    }, (error) => {
+      console.error("Classes listener error:", error);
     });
 
     return () => {
@@ -194,7 +200,7 @@ export default function TransactionCounter() {
                   <div>
                     <h4 className="font-bold text-slate-800">{student.fullName}</h4>
                     <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">{student.className} • NISN: {student.nisn}</p>
-                    <p className="text-sm font-bold text-brand-teal mt-0.5">Saldo: Rp {student.balanceSavings.toLocaleString('id-ID')}</p>
+                    <p className="text-sm font-bold text-brand-teal mt-0.5">Saldo: Rp {(student.balanceSavings || 0).toLocaleString('id-ID')}</p>
                   </div>
                 </div>
                 <Button 
@@ -232,7 +238,7 @@ export default function TransactionCounter() {
                 
                 <div className="mb-8">
                   <p className="text-purple-200 text-xs mb-1 font-bold uppercase">Saldo Kas Saat Ini</p>
-                  <p className="text-4xl font-bold">Rp {currentClassData.balanceCash.toLocaleString('id-ID')}</p>
+                  <p className="text-4xl font-bold">Rp {(currentClassData.balanceCash || 0).toLocaleString('id-ID')}</p>
                 </div>
 
                 <Button 

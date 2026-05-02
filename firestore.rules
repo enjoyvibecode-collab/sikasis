@@ -20,14 +20,21 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
 
+    function currentUserExists() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function belongsToSchool(schoolId) { 
+      return isSignedIn() && (isSuperOwner() || (currentUserExists() && currentUser().schoolId == schoolId)); 
+    }
+
     function hasRole(schoolId, roles) {
-      return isSignedIn() && (isSuperOwner() || (currentUser().schoolId == schoolId && (currentUser().role in roles)));
+      return isSignedIn() && (isSuperOwner() || (currentUserExists() && currentUser().schoolId == schoolId && (currentUser().role in roles)));
     }
 
     function isKepalaSekolah(schoolId) { return hasRole(schoolId, ['owner', 'kepala_sekolah']); }
     function isBendahara(schoolId) { return hasRole(schoolId, ['owner', 'bendahara']); }
     function isTU(schoolId) { return hasRole(schoolId, ['owner', 'tu']); }
-    function belongsToSchool(schoolId) { return isSignedIn() && (isSuperOwner() || currentUser().schoolId == schoolId); }
 
     function isValidSystemConfig(data) {
       return data.keys().hasAll(['maintenanceMode', 'allowRegistrations']) && 
