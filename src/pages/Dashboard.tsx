@@ -348,26 +348,33 @@ const KepalaSekolahDashboard = () => {
           </div>
         </div>
         <div className="text-right hidden md:block">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Status Penutupan Buku</p>
-          <Button 
-            size="sm" 
-            variant={school?.isClosingAuthorizedByPrincipal ? "default" : "outline"}
-            className={`h-9 gap-2 font-bold ${school?.isClosingAuthorizedByPrincipal ? 'bg-emerald-600 border-none' : 'border-amber-200 text-amber-600'}`}
-            onClick={async () => {
-              setLoading(true);
-              try {
-                await updateDoc(doc(db, 'schools', profile!.schoolId!), {
-                  isClosingAuthorizedByPrincipal: !school?.isClosingAuthorizedByPrincipal
-                });
-              } finally {
-                setLoading(false);
-              }
-            }}
-            disabled={loading}
-          >
-            {school?.isClosingAuthorizedByPrincipal ? <Check size={16} /> : <AlertTriangle size={16} />}
-            {school?.isClosingAuthorizedByPrincipal ? 'IZIN DIBERIKAN' : 'BERI IZIN TUTUP BUKU'}
-          </Button>
+          {(profile?.role === 'owner' || profile?.role === 'kepala_sekolah') && (
+            <>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Status Penutupan Buku</p>
+              <Button 
+                size="sm" 
+                variant={school?.isClosingAuthorizedByPrincipal ? "default" : "outline"}
+                className={`h-9 gap-2 font-bold ${school?.isClosingAuthorizedByPrincipal ? 'bg-emerald-600 border-none' : 'border-amber-200 text-amber-600'}`}
+                onClick={async () => {
+                  setLoading(true);
+                  try {
+                    await updateDoc(doc(db, 'schools', profile!.schoolId!), {
+                      isClosingAuthorizedByPrincipal: !school?.isClosingAuthorizedByPrincipal
+                    });
+                  } catch (err: any) {
+                    console.error(err);
+                    alert('Gagal memperbarui izin: ' + err.message);
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                disabled={loading}
+              >
+                {school?.isClosingAuthorizedByPrincipal ? <Check size={16} /> : <AlertTriangle size={16} />}
+                {school?.isClosingAuthorizedByPrincipal ? 'IZIN DIBERIKAN' : 'BERI IZIN TUTUP BUKU'}
+              </Button>
+            </>
+          )}
         </div>
       </div>
 

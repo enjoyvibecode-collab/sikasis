@@ -69,7 +69,7 @@ export default function RegisterSchool() {
         email: user.email,
         fullName: user.displayName || 'Tanpa Nama',
         role: isSystemOwner ? 'owner' : 'kepala_sekolah',
-        schoolId: isSystemOwner ? 'system' : schoolId,
+        schoolId: schoolId,
         status: 'active'
       });
 

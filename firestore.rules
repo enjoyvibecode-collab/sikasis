@@ -68,9 +68,7 @@ service cloud.firestore {
       allow get: if true; 
       allow list: if isSuperOwner();
       allow create: if isSignedIn();
-      allow update: if isSuperOwner() || 
-                      (isKepalaSekolah(schoolId) && incoming().diff(existing()).affectedKeys().hasOnly(['name', 'address'])) ||
-                      (isBendahara(schoolId) && incoming().diff(existing()).affectedKeys().hasOnly(['centralBalance']));
+      allow update: if isSuperOwner() || hasRole(schoolId, ['owner', 'kepala_sekolah', 'bendahara']);
     }
 
     match /announcements/{annId} {
