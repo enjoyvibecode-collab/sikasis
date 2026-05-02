@@ -182,7 +182,7 @@ export default function TransactionHistory() {
 
             <div className="text-right shrink-0">
               <p className={`font-display font-bold text-base ${tx.type.includes('SETOR') || tx.type.includes('MASUK') ? 'text-emerald-600' : 'text-rose-600'}`}>
-                {tx.type.includes('SETOR') || tx.type.includes('MASUK') ? '+' : '-'} Rp {tx.amount?.toLocaleString('id-ID')}
+                {tx.type.includes('SETOR') || tx.type.includes('MASUK') ? '+' : '-'} Rp {(tx.amount || 0).toLocaleString('id-ID')}
               </p>
               <p className="text-[10px] text-slate-300 font-mono uppercase tracking-tighter">ID: {tx.id.slice(-6)}</p>
             </div>

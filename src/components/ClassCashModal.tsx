@@ -52,7 +52,7 @@ export const ClassCashModal: React.FC<ClassCashModalProps> = ({
           <div class="divider"></div>
           <div class="flex bold">
             <span>${type === 'SETOR_KAS_KELAS' ? 'SETOR' : 'TARIK'}</span>
-            <span>Rp ${lastTx.amount.toLocaleString('id-ID')}</span>
+            <span>Rp ${(lastTx.amount || 0).toLocaleString('id-ID')}</span>
           </div>
           <div class="divider"></div>
           <div class="center">Simpan bukti transaksi ini.</div>
@@ -143,7 +143,7 @@ export const ClassCashModal: React.FC<ClassCashModalProps> = ({
               <h4 className="font-bold text-slate-800">{classData.name}</h4>
               <div className="flex justify-between items-center mt-3 pt-3 border-t border-slate-200">
                 <span className="text-sm text-slate-500 font-medium">Saldo Kas Saat Ini</span>
-                <span className="font-display font-bold text-brand-teal">Rp {classData.balanceCash.toLocaleString('id-ID')}</span>
+                <span className="font-display font-bold text-brand-teal">Rp {(classData.balanceCash || 0).toLocaleString('id-ID')}</span>
               </div>
             </div>
 

@@ -84,7 +84,7 @@ export default function ClassManagement() {
                 <div className="flex items-center gap-1">
                   <Users size={14} /> <span>Saldo Kas:</span>
                 </div>
-                <span className="font-bold text-slate-800">Rp {cls.balanceCash.toLocaleString('id-ID')}</span>
+                <span className="font-bold text-slate-800">Rp {(cls.balanceCash || 0).toLocaleString('id-ID')}</span>
               </div>
               <Button 
                 variant="ghost" 

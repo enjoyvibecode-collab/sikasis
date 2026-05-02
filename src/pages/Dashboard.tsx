@@ -385,7 +385,7 @@ const KepalaSekolahDashboard = () => {
                     </div>
                   </div>
                   <p className={`text-sm font-bold ${tx.type.includes('SETOR') ? 'text-emerald-600' : 'text-rose-600'}`}>
-                    {tx.type.includes('SETOR') ? '+' : '-'} {tx.amount.toLocaleString('id-ID')}
+                    {tx.type.includes('SETOR') ? '+' : '-'} {(tx.amount || 0).toLocaleString('id-ID')}
                   </p>
                 </div>
               ))}
@@ -440,7 +440,7 @@ const StatItem = ({ icon, label, value, color, isCurrency }: { icon: React.React
     </div>
     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{label}</p>
     <p className="text-lg md:text-2xl font-bold text-slate-800 mt-1 truncate">
-      {isCurrency ? `Rp ${value.toLocaleString('id-ID')}` : value.toLocaleString('id-ID')}
+      {isCurrency ? `Rp ${(value || 0).toLocaleString('id-ID')}` : (value || 0).toLocaleString('id-ID')}
     </p>
   </Card>
 );
@@ -504,7 +504,7 @@ const BendaharaDashboard = () => {
 
   const handleTutupBuku = async () => {
     if (totalTuBalance > 0) {
-      alert(`Gagal Tutup Buku! Masih ada saldo modal Rp ${totalTuBalance.toLocaleString('id-ID')} di tangan TU. Harap tarik semua modal ke pusat terlebih dahulu.`);
+      alert(`Gagal Tutup Buku! Masih ada saldo modal Rp ${(totalTuBalance || 0).toLocaleString('id-ID')} di tangan TU. Harap tarik semua modal ke pusat terlebih dahulu.`);
       return;
     }
 
@@ -647,7 +647,7 @@ const BendaharaDashboard = () => {
         <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 group-hover:scale-110 transition-transform"></div>
         <p className="relative text-teal-100 text-sm font-bold uppercase tracking-widest">Total Saldo Central</p>
         <h2 className="relative text-5xl font-display font-bold mt-4">
-          Rp {school?.centralBalance?.toLocaleString('id-ID') || '0'}
+          Rp {(school?.centralBalance || 0).toLocaleString('id-ID')}
         </h2>
         <div className="relative mt-8 flex justify-center gap-4">
           <Button onClick={() => setIsTopUpOpen(true)} className="bg-white text-brand-teal hover:bg-teal-50 border-none shadow-lg px-6">
@@ -665,7 +665,7 @@ const BendaharaDashboard = () => {
             <Wallet size={20} />
           </div>
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Tabungan</p>
-          <p className="text-lg font-bold text-slate-800 mt-1">Rp {stats.totalSavings.toLocaleString('id-ID')}</p>
+          <p className="text-lg font-bold text-slate-800 mt-1">Rp {(stats.totalSavings || 0).toLocaleString('id-ID')}</p>
         </Card>
         
         <Card className="p-6 bg-white shadow-sm flex flex-col items-center text-center">
@@ -673,7 +673,7 @@ const BendaharaDashboard = () => {
             <SchoolIcon size={20} />
           </div>
           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total Kas Kelas</p>
-          <p className="text-lg font-bold text-slate-800 mt-1">Rp {stats.totalClassesCash.toLocaleString('id-ID')}</p>
+          <p className="text-lg font-bold text-slate-800 mt-1">Rp {(stats.totalClassesCash || 0).toLocaleString('id-ID')}</p>
         </Card>
 
         <Card className="p-6 bg-white shadow-sm flex flex-col items-center justify-center lg:col-span-1 col-span-1">
@@ -726,7 +726,7 @@ const BendaharaDashboard = () => {
             <div className="space-y-2">
               <p className="text-xs text-slate-400">Total Modal di Tangan TU saat ini:</p>
               <div className={`p-3 rounded-xl flex justify-between items-center ${totalTuBalance > 0 ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'}`}>
-                <span className="text-sm font-bold">Rp {totalTuBalance.toLocaleString('id-ID')}</span>
+                <span className="text-sm font-bold">Rp {(totalTuBalance || 0).toLocaleString('id-ID')}</span>
                 {totalTuBalance > 0 ? <AlertTriangle size={16} /> : <Check size={16} />}
               </div>
             </div>
@@ -929,7 +929,7 @@ const TUDashboard = () => {
         </div>
         <Card className="p-4 bg-slate-900 text-white border-none min-w-[200px]">
           <p className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">Modal di Tangan</p>
-          <p className="text-xl font-display font-bold">Rp {wallet?.balance?.toLocaleString('id-ID') || '0'}</p>
+          <p className="text-xl font-display font-bold">Rp {(wallet?.balance || 0).toLocaleString('id-ID')}</p>
         </Card>
       </div>
 
@@ -999,7 +999,7 @@ const TUDashboard = () => {
                 </div>
               </div>
               <p className={`text-sm font-bold ${tx.type.includes('SETOR') ? 'text-emerald-600' : 'text-rose-600'}`}>
-                {tx.type.includes('SETOR') ? '+' : '-'} {tx.amount.toLocaleString('id-ID')}
+                {tx.type.includes('SETOR') ? '+' : '-'} {(tx.amount || 0).toLocaleString('id-ID')}
               </p>
             </div>
           ))}
@@ -1033,7 +1033,7 @@ const TUDashboard = () => {
               <div className="flex justify-between items-center">
                 <div>
                   <h4 className="font-bold text-slate-800">{student.fullName}</h4>
-                  <p className="text-xs text-slate-500">Saldo: Rp {student.balanceSavings?.toLocaleString()}</p>
+                  <p className="text-xs text-slate-500">Saldo: Rp {(student.balanceSavings || 0).toLocaleString('id-ID')}</p>
                 </div>
                 <div className="text-[10px] bg-brand-teal/10 text-brand-teal px-2 py-1 rounded-full font-bold">
                   TERVERIFIKASI
@@ -1131,7 +1131,7 @@ const BendaharaKelasDashboard = () => {
       <Card className="p-8 bg-gradient-to-br from-purple-600 to-indigo-700 text-white border-none shadow-xl text-center">
         <p className="text-purple-100 text-xs font-bold uppercase tracking-widest">Saldo Kas Saat Ini</p>
         <h2 className="text-4xl font-display font-bold mt-2">
-          Rp {classData?.balanceCash?.toLocaleString() || '0'}
+          Rp {(classData?.balanceCash || 0).toLocaleString('id-ID')}
         </h2>
       </Card>
 
@@ -1163,7 +1163,7 @@ const BendaharaKelasDashboard = () => {
                   </p>
                 </div>
                 <p className="text-sm font-bold text-emerald-600">
-                  + {tx.amount.toLocaleString('id-ID')}
+                  + {(tx.amount || 0).toLocaleString('id-ID')}
                 </p>
               </div>
             ))}

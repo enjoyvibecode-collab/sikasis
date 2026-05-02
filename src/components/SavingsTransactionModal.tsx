@@ -58,7 +58,7 @@ export const SavingsTransactionModal: React.FC<SavingsTransactionModalProps> = (
           <div class="divider"></div>
           <div class="flex bold">
             <span>${type === 'SETOR_TABUNGAN' ? 'SETOR' : 'TARIK'}</span>
-            <span>Rp ${lastTx.amount.toLocaleString('id-ID')}</span>
+            <span>Rp ${(lastTx.amount || 0).toLocaleString('id-ID')}</span>
           </div>
           <div class="divider"></div>
           <div class="center">Simpan bukti transaksi ini.</div>
@@ -149,7 +149,7 @@ export const SavingsTransactionModal: React.FC<SavingsTransactionModalProps> = (
               <h4 className="font-bold text-slate-800">{student.fullName}</h4>
               <div className="flex justify-between items-center mt-3 pt-3 border-t border-slate-200">
                 <span className="text-sm text-slate-500 font-medium">Saldo Saat Ini</span>
-                <span className="font-display font-bold text-brand-teal">Rp {student.balanceSavings.toLocaleString('id-ID')}</span>
+                <span className="font-display font-bold text-brand-teal">Rp {(student.balanceSavings || 0).toLocaleString('id-ID')}</span>
               </div>
             </div>
 

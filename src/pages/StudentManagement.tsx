@@ -308,7 +308,7 @@ export default function StudentManagement() {
               <div className="text-right">
                 <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Tabungan</p>
                 <div className="flex items-center gap-2">
-                  <p className="font-display font-bold text-brand-teal">Rp {student.balanceSavings.toLocaleString('id-ID')}</p>
+                  <p className="font-display font-bold text-brand-teal">Rp {(student.balanceSavings || 0).toLocaleString('id-ID')}</p>
                   {(profile?.role === 'tu' || profile?.role === 'owner' || profile?.role === 'bendahara' || profile?.role === 'kepala_sekolah') && (
                     <Button 
                       variant="ghost" 
