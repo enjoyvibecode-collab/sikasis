@@ -59,9 +59,9 @@ service cloud.firestore {
       allow create: if isSignedIn() && (isSuperOwner() || (
                       incoming().schoolId == currentUser().schoolId && 
                       incoming().executorId == request.auth.uid &&
-                      incoming().timestamp == request.time &&
-                      incoming().type in ['SETOR_TABUNGAN', 'TARIK_TABUNGAN', 'SETOR_KAS_KELAS', 'TARIK_KAS_KELAS', 'MODAL_TU_MASUK', 'MODAL_TU_KEMBALI'] &&
-                      incoming().amount > 0));
+                      (incoming().timestamp == request.time || incoming().timestamp == null) &&
+                      incoming().type in ['SETOR_TABUNGAN', 'TARIK_TABUNGAN', 'SETOR_KAS_KELAS', 'TARIK_KAS_KELAS', 'MODAL_TU_MASUK', 'MODAL_TU_KEMBALI', 'AUDIT_ADJUSTMENT_IN', 'AUDIT_ADJUSTMENT_OUT', 'INISIALISASI_TABUNGAN_SISWA', 'INISIALISASI_KAS_KELAS'] &&
+                      incoming().amount >= 0));
     }
 
     match /schools/{schoolId} {

@@ -934,10 +934,11 @@ const BendaharaDashboard = () => {
                           batch.set(auditRef, {
                             id: auditRef.id,
                             schoolId: profile!.schoolId!,
+                            executorId: auth.currentUser?.uid,
                             amount: totalRecovered,
                             type: 'AUDIT_ADJUSTMENT_IN',
                             description: 'Penarikan Paksa Modal TU (Audit/Tutup Buku)',
-                            timestamp: new Date()
+                            timestamp: serverTimestamp()
                           });
                         }
                         
