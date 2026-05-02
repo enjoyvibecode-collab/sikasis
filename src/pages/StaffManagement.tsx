@@ -40,8 +40,13 @@ export default function StaffManagement() {
     const unsub = onSnapshot(q, (snapshot) => {
       const allUsers = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as any));
       
-      // Filter out current user (headmaster doesn't need to see themselves in staff list)
-      const filteredStaff = allUsers.filter(u => u.id !== profile?.id);
+      // 1. Filter out headmaster or owner roles (they manage, not staff)
+      // 2. Also filter out current user by ID as a safety net
+      const filteredStaff = allUsers.filter(u => 
+        u.role !== 'kepala_sekolah' && 
+        u.role !== 'owner' && 
+        u.id !== profile?.id
+      );
       
       // Deduplicate by identity (email or username)
       const staffMap = new Map<string, any>();
