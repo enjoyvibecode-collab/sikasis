@@ -63,7 +63,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   email: authUser.email,
                   inviteEmail: null, 
                   status: 'active',
-                  id: authUser.uid 
+                  id: authUser.uid,
+                  uid: authUser.uid 
                 }, { merge: true });
 
                 // Check and migrate TU wallet if exists

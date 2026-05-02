@@ -1229,8 +1229,8 @@ const TUDashboard = () => {
   const [loading, setLoading] = React.useState(false);
 
   React.useEffect(() => {
-    if (!profile?.uid || !profile?.schoolId) return;
-    const walletId = `${profile.schoolId}_${profile.uid}`;
+    if (!profile?.id || !profile?.schoolId) return;
+    const walletId = `${profile.schoolId}_${profile.id}`;
     const unsub = onSnapshot(doc(db, 'tu_wallets', walletId), (doc) => {
       setWallet(doc.data());
     });
