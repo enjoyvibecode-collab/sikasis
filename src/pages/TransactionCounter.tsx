@@ -12,6 +12,7 @@ export default function TransactionCounter() {
   const { profile } = useAuth();
   const [activeTab, setActiveTab] = useState<'savings' | 'class_cash'>('savings');
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedClassId, setSelectedClassId] = useState('');
   
   const [students, setStudents] = useState<Student[]>([]);
   const [classes, setClasses] = useState<ClassData[]>([]);
@@ -39,10 +40,10 @@ export default function TransactionCounter() {
     const unsubStudents = onSnapshot(studentQ, (snapshot) => {
       let data = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Student));
       
-      // Filter by TU Authority
-      if (profile.role === 'tu' && profile.authorizedGrades && profile.authorizedGrades.length > 0) {
+      // Filter by TU Authority (Grades)
+      if (profile.role === 'tu' && profile.authorizedGrades && !profile.authorizedGrades.includes('Semua')) {
         data = data.filter(s => {
-          const grade = s.className.split(' ')[0]; // Assumes format "7 A", "8 B", etc.
+          const grade = s.className.split(' ')[0]; 
           return profile.authorizedGrades?.includes(grade);
         });
       }
@@ -53,13 +54,16 @@ export default function TransactionCounter() {
     const unsubClasses = onSnapshot(classQ, (snapshot) => {
       let data = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as ClassData));
       
-      // Filter by TU Authority
-      if (profile.role === 'tu' && profile.authorizedGrades && profile.authorizedGrades.length > 0) {
+      // Filter by TU Authority (Grades)
+      if (profile.role === 'tu' && profile.authorizedGrades && !profile.authorizedGrades.includes('Semua')) {
         data = data.filter(c => {
           const grade = c.name.split(' ')[0];
           return profile.authorizedGrades?.includes(grade);
         });
       }
+      
+      // Sort classes by name
+      data.sort((a, b) => a.name.localeCompare(b.name));
       
       setClasses(data);
     });
@@ -70,21 +74,24 @@ export default function TransactionCounter() {
     };
   }, [profile]);
 
-  const filteredStudents = students.filter(s => 
-    s.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    s.nisn.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    s.className.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const currentClassData = classes.find(c => c.id === selectedClassId);
 
-  const filteredClasses = classes.filter(c => 
-    c.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredStudents = students.filter(s => {
+    // If a class is selected, only show students from that class
+    if (selectedClassId && s.classId !== selectedClassId) return false;
+    
+    // Search filter
+    const matchesSearch = s.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         s.nisn.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    return matchesSearch;
+  });
 
   return (
     <div className="p-4 md:p-8 max-w-5xl mx-auto">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-slate-800">Loket Transaksi Cepat</h1>
-        <p className="text-sm text-slate-500">Cari siswa atau kelas untuk mulai mencatat transaksi.</p>
+        <p className="text-sm text-slate-500">Pilih kelas dan tentukan jenis transaksi.</p>
       </div>
 
       <div className="flex gap-2 p-1 bg-brand-sand/50 rounded-2xl mb-6">
@@ -110,20 +117,41 @@ export default function TransactionCounter() {
         </button>
       </div>
 
-      <div className="relative mb-8">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-        <Input
-          placeholder={activeTab === 'savings' ? "Cari Nama Siswa atau NISN..." : "Cari Nama Kelas..."}
-          className="pl-12 h-14 text-lg border-2 border-brand-sand focus:border-brand-teal transition-all shadow-sm"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-        />
+      <div className="grid md:grid-cols-2 gap-4 mb-8">
+        <div className="space-y-1">
+          <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Pilih Kelas :</label>
+          <select 
+            className="w-full h-14 px-4 rounded-xl border-2 border-brand-sand focus:border-brand-teal outline-none font-bold text-slate-700 bg-white"
+            value={selectedClassId}
+            onChange={(e) => setSelectedClassId(e.target.value)}
+          >
+            <option value="">-- Pilih Kelas --</option>
+            {classes.map(c => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        </div>
+
+        {activeTab === 'savings' && (
+          <div className="space-y-1">
+            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest ml-1">Cari Siswa :</label>
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+              <Input
+                placeholder="Nama / NISN..."
+                className="pl-12 h-14 text-lg border-2 border-brand-sand focus:border-brand-teal transition-all shadow-sm"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="space-y-4">
         {activeTab === 'savings' ? (
           filteredStudents.length > 0 ? (
-            filteredStudents.slice(0, 10).map(student => (
+            filteredStudents.slice(0, 50).map(student => (
               <Card key={student.id} className="p-4 flex items-center justify-between hover:bg-teal-50/30 transition-colors border-l-4 border-l-brand-teal">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-xl bg-teal-50 text-brand-teal flex items-center justify-center">
@@ -147,41 +175,51 @@ export default function TransactionCounter() {
                 </Button>
               </Card>
             ))
-          ) : searchTerm ? (
-            <div className="text-center py-10 opacity-40">Siswa tidak ditemukan.</div>
           ) : (
-             <div className="text-center py-10 opacity-40">Masukkan nama siswa untuk mencari...</div>
+            <div className="text-center py-20 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
+              <div className="w-16 h-16 bg-slate-100 text-slate-300 rounded-full flex items-center justify-center mx-auto mb-4">
+                <UserCircle size={40} />
+              </div>
+              <p className="text-slate-400 font-medium">
+                {selectedClassId ? "Tidak ada siswa di kelas ini yang cocok." : "Silahkan pilih kelas atau masukkan pencarian..."}
+              </p>
+            </div>
           )
         ) : (
-          filteredClasses.length > 0 ? (
-            filteredClasses.map(cls => (
-              <Card key={cls.id} className="p-4 flex items-center justify-between hover:bg-purple-50 transition-colors border-l-4 border-l-purple-500">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
-                    <SchoolIcon size={24} />
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-slate-800">{cls.name}</h4>
-                    <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">Kelas Terdaftar</p>
-                    <p className="text-sm font-bold text-purple-600 mt-0.5">Saldo Kas: Rp {cls.balanceCash.toLocaleString('id-ID')}</p>
-                  </div>
+          currentClassData ? (
+            <Card className="p-8 border-none shadow-2xl bg-gradient-to-br from-purple-600 to-indigo-800 text-white overflow-hidden relative">
+              <div className="absolute -right-10 -bottom-10 opacity-10 rotate-12">
+                <SchoolIcon size={200} />
+              </div>
+              <div className="relative z-10">
+                <p className="text-purple-100 text-[10px] font-bold uppercase tracking-[0.2em] mb-2">Manajemen Kas Kelas</p>
+                <h3 className="text-4xl font-black mb-2">{currentClassData.name}</h3>
+                <div className="h-px bg-white/20 w-24 mb-6"></div>
+                
+                <div className="mb-8">
+                  <p className="text-purple-200 text-xs mb-1 font-bold uppercase">Saldo Kas Saat Ini</p>
+                  <p className="text-4xl font-bold">Rp {currentClassData.balanceCash.toLocaleString('id-ID')}</p>
                 </div>
+
                 <Button 
-                  size="sm" 
-                  className="bg-purple-600 hover:bg-purple-700 gap-2"
+                  size="lg"
+                  className="w-full bg-white text-purple-700 hover:bg-purple-50 font-bold text-base h-14 rounded-xl gap-3 shadow-xl"
                   onClick={() => {
-                    setSelectedClass(cls);
+                    setSelectedClass(currentClassData);
                     setIsClassCashModalOpen(true);
                   }}
                 >
-                  KELOLA KAS <ArrowRightCircle size={16} />
+                  <ArrowRightCircle size={24} /> KELOLA KAS SEKARANG
                 </Button>
-              </Card>
-            ))
-          ) : searchTerm ? (
-            <div className="text-center py-10 opacity-40">Kelas tidak ditemukan.</div>
+              </div>
+            </Card>
           ) : (
-            <div className="text-center py-10 opacity-40">Cari nama kelas...</div>
+            <div className="text-center py-20 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-200">
+              <div className="w-16 h-16 bg-slate-100 text-slate-300 rounded-full flex items-center justify-center mx-auto mb-4">
+                <SchoolIcon size={40} />
+              </div>
+              <p className="text-slate-400 font-medium">Silahkan pilih kelas untuk mengelola kas.</p>
+            </div>
           )
         )}
       </div>
