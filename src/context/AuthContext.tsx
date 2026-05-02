@@ -65,6 +65,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                   status: 'active',
                   id: authUser.uid 
                 }, { merge: true });
+
+                // Check and migrate TU wallet if exists
+                if (inviteData.role === 'tu' && inviteData.schoolId) {
+                  const oldWalletId = `${inviteData.schoolId}_${inviteDoc.id}`;
+                  const oldWalletRef = doc(db, 'tu_wallets', oldWalletId);
+                  const walletSnap = await getDoc(oldWalletRef);
+                  
+                  if (walletSnap.exists()) {
+                    const walletData = walletSnap.data();
+                    const newWalletId = `${inviteData.schoolId}_${authUser.uid}`;
+                    await setDoc(doc(db, 'tu_wallets', newWalletId), {
+                      ...walletData,
+                      tuId: authUser.uid
+                    }, { merge: true });
+                    await deleteDoc(oldWalletRef);
+                    console.log("Wallet migrated successfully!");
+                  }
+                }
                 
                 // Remove the invitation document
                 await deleteDoc(inviteDoc.ref);

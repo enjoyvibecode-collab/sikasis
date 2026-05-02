@@ -451,12 +451,14 @@ const BendaharaDashboard = () => {
   const [stats, setStats] = React.useState({ totalSavings: 0, totalClassesCash: 0 });
   const [isTopUpOpen, setIsTopUpOpen] = React.useState(false);
   const [isAlokasiOpen, setIsAlokasiOpen] = React.useState(false);
+  const [isTarikOpen, setIsTarikOpen] = React.useState(false);
   const [isPeriodeOpen, setIsPeriodeOpen] = React.useState(false);
   const [amount, setAmount] = React.useState('');
   const [loading, setLoading] = React.useState(false);
   const [tuStaff, setTuStaff] = React.useState<any[]>([]);
   const [tuWallets, setTuWallets] = React.useState<any[]>([]);
   const [selectedTu, setSelectedTu] = React.useState('');
+  const [selectedTuName, setSelectedTuName] = React.useState('');
 
   React.useEffect(() => {
     if (!profile?.schoolId) return;
@@ -488,8 +490,26 @@ const BendaharaDashboard = () => {
       where('schoolId', '==', profile.schoolId),
       where('role', '==', 'tu')
     );
-    getDocs(tuQuery).then(snap => {
-      setTuStaff(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    onSnapshot(tuQuery, (snap) => {
+      const allTu = snap.docs.map(d => ({ id: d.id, ...d.data() } as any));
+      const staffMap = new Map<string, any>();
+      
+      allTu.forEach(u => {
+        const identityKey = (u.email || u.inviteEmail || u.username || u.id).toLowerCase();
+        const existing = staffMap.get(identityKey);
+        
+        if (!existing) {
+          staffMap.set(identityKey, u);
+        } else {
+          const existingIsPlaceholder = existing.id.startsWith('staff_');
+          const currentIsPlaceholder = u.id.startsWith('staff_');
+          if (existingIsPlaceholder && !currentIsPlaceholder) {
+            staffMap.set(identityKey, u);
+          }
+        }
+      });
+      
+      setTuStaff(Array.from(staffMap.values()));
     });
 
     return () => {
@@ -633,6 +653,38 @@ const BendaharaDashboard = () => {
     }
   };
 
+  const handleTarikModal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const val = parseInt(amount);
+    if (!selectedTu || isNaN(val) || val <= 0) return;
+    
+    // Find wallet balance
+    const wallet = tuWallets.find(w => w.tuId === selectedTu);
+    if (!wallet || val > (wallet.balance || 0)) {
+      alert('Saldo di tangan TU tidak mencukupi!');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await executeAtomicTransaction({
+        schoolId: profile!.schoolId!,
+        amount: val,
+        type: 'MODAL_TU_KEMBALI',
+        tuId: selectedTu,
+        notes: `Penarikan modal tunai dari TU (${selectedTuName}) ke Kas Utama`
+      });
+
+      setIsTarikOpen(false);
+      setAmount('');
+      alert('Penarikan modal berhasil!');
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="p-4 md:p-8 space-y-8 text-center max-w-2xl mx-auto">
       <div className="mb-8">
@@ -685,7 +737,7 @@ const BendaharaDashboard = () => {
           <p className="text-[10px] font-bold text-amber-600 uppercase">SMT {school?.semester || 'GANJIL'}</p>
         </Card>
 
-        <Card className="p-6 bg-white shadow-sm flex flex-col items-center justify-center lg:col-span-1 col-span-1">
+        <Card className="p-4 bg-white shadow-sm flex flex-col items-center justify-center lg:col-span-1 col-span-1">
           <Button 
             variant="outline" 
             className="w-full text-[10px] h-10 border-brand-teal text-brand-teal font-bold"
@@ -697,6 +749,68 @@ const BendaharaDashboard = () => {
             <Button variant="ghost" className="w-full text-[10px] h-8 text-slate-400">RIWAYAT KAS</Button>
           </Link>
         </Card>
+      </div>
+
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest">Loket & Petugas TU</h3>
+          <Link to="staff" className="text-xs text-brand-teal hover:underline font-bold">KELOLA STAF</Link>
+        </div>
+        <div className="grid gap-3">
+          {tuStaff.map(tu => {
+            const wallet = tuWallets.find(w => w.tuId === tu.id);
+            const balance = wallet?.balance || 0;
+            return (
+              <Card key={tu.id} className="p-4 flex items-center justify-between bg-white border-brand-sand shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-slate-50 text-slate-400 rounded-xl flex items-center justify-center border border-slate-100">
+                    <UserCircle size={20} />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-sm font-bold text-slate-800">{tu.fullName}</p>
+                    <p className={`text-[10px] font-bold uppercase tracking-widest ${balance > 0 ? 'text-amber-600' : 'text-slate-400'}`}>
+                      Modal: Rp {balance.toLocaleString('id-ID')}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="h-8 text-[10px] border-amber-200 text-amber-600 hover:bg-amber-50 font-bold"
+                    onClick={() => {
+                      setSelectedTu(tu.id);
+                      setSelectedTuName(tu.fullName);
+                      setIsTarikOpen(true);
+                      setAmount('');
+                    }}
+                    disabled={balance <= 0}
+                  >
+                    TARIK
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    className="h-8 text-[10px] font-bold"
+                    onClick={() => {
+                      setSelectedTu(tu.id);
+                      setSelectedTuName(tu.fullName);
+                      setIsAlokasiOpen(true);
+                      setAmount('');
+                    }}
+                  >
+                    KIRIM
+                  </Button>
+                </div>
+              </Card>
+            );
+          })}
+          {tuStaff.length === 0 && (
+            <div className="p-8 border-2 border-dashed border-slate-100 rounded-2xl flex flex-col items-center opacity-30">
+              <Users size={32} className="mb-2" />
+              <p className="text-xs italic">Belum ada petugas TU.</p>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Modal Periode */}
@@ -795,23 +909,25 @@ const BendaharaDashboard = () => {
       </Modal>
 
       {/* Modal Alokasi TU */}
-      <Modal isOpen={isAlokasiOpen} onClose={() => setIsAlokasiOpen(false)} title="Alokasi Modal ke TU">
+      <Modal isOpen={isAlokasiOpen} onClose={() => setIsAlokasiOpen(false)} title={`Alokasi Modal: ${selectedTuName}`}>
         <form onSubmit={handleAlokasi} className="space-y-4">
-          <p className="text-sm text-slate-500">Kirimkan uang tunai/modal kerja ke Petugas TU untuk melayani penarikan tabungan siswa.</p>
-          <div>
-            <label className="text-sm font-bold text-slate-700 mb-1 block">Pilih Petugas TU</label>
-            <select 
-              className="w-full h-11 px-4 rounded-xl border border-slate-200"
-              value={selectedTu}
-              onChange={e => setSelectedTu(e.target.value)}
-              required
-            >
-              <option value="">Pilih TU...</option>
-              {tuStaff.map(tu => (
-                <option key={tu.id} value={tu.id}>{tu.fullName}</option>
-              ))}
-            </select>
-          </div>
+          <p className="text-sm text-slate-500">Kirimkan uang tunai/modal kerja ke Petugas TU ini untuk melayani penarikan tabungan siswa.</p>
+          {!selectedTu && (
+            <div>
+              <label className="text-sm font-bold text-slate-700 mb-1 block">Pilih Petugas TU</label>
+              <select 
+                className="w-full h-11 px-4 rounded-xl border border-slate-200"
+                value={selectedTu}
+                onChange={e => setSelectedTu(e.target.value)}
+                required
+              >
+                <option value="">Pilih TU...</option>
+                {tuStaff.map(tu => (
+                  <option key={tu.id} value={tu.id}>{tu.fullName}</option>
+                ))}
+              </select>
+            </div>
+          )}
           <div>
             <label className="text-sm font-bold text-slate-700 mb-1 block">Jumlah Modal (Rp)</label>
             <Input 
@@ -820,10 +936,36 @@ const BendaharaDashboard = () => {
               required
               value={amount}
               onChange={e => setAmount(e.target.value)}
+              autoFocus
             />
+            <p className="text-[10px] text-slate-400 mt-1 italic">Saldo Central: Rp {school?.centralBalance?.toLocaleString('id-ID')}</p>
           </div>
           <Button className="w-full h-12 mt-4" disabled={loading}>
-            {loading ? 'Kirim Modal Sekarang' : 'Kirim Modal Sekarang'}
+            {loading ? 'Sabar Ya...' : 'Konfirmasi Kirim Modal'}
+          </Button>
+        </form>
+      </Modal>
+
+      {/* Modal Tarik TU */}
+      <Modal isOpen={isTarikOpen} onClose={() => setIsTarikOpen(false)} title={`Tarik Modal: ${selectedTuName}`}>
+        <form onSubmit={handleTarikModal} className="space-y-4">
+          <p className="text-sm text-slate-500">Tarik kembali sisa uang tunai yang dipegang Petugas TU ini ke dalam Kas Utama Sekolah.</p>
+          <div>
+            <label className="text-sm font-bold text-slate-700 mb-1 block">Jumlah yang Ditarik (Rp)</label>
+            <Input 
+              type="number" 
+              placeholder="0" 
+              required
+              value={amount}
+              onChange={e => setAmount(e.target.value)}
+              autoFocus
+            />
+            <p className="text-[10px] text-slate-400 mt-1 italic">
+              Batas Maksimal: Rp {tuWallets.find(w => w.tuId === selectedTu)?.balance?.toLocaleString('id-ID') || '0'}
+            </p>
+          </div>
+          <Button className="w-full h-12 mt-4 bg-amber-600 hover:bg-amber-700 border-none" disabled={loading}>
+            {loading ? 'Sedang Menarik...' : 'Konfirmasi Tarik Modal'}
           </Button>
         </form>
       </Modal>
