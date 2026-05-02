@@ -50,11 +50,12 @@ service cloud.firestore {
       allow write: if isSuperOwner() && isValidSystemConfig(incoming());
     }
 
-    // Audit Trail: Transactions are IMMUTABLE
+    // Audit Trail: Transactions are IMMUTABLE by default, but allow delete for reset by owner/principal
     match /transactions/{txId} {
-      allow get, list: if isSignedIn() && (isSuperOwner() || currentUser().schoolId == resource.data.schoolId);
-      allow update, delete: if isSuperOwner();
-      allow create: if isSignedIn() && (isSuperOwner() || (
+      allow get, list: if isSignedIn() && (isSuperOwner() || (currentUserExists() && currentUser().schoolId == resource.data.schoolId));
+      allow delete: if isSuperOwner() || isKepalaSekolah(resource.data.schoolId);
+      allow update: if isSuperOwner();
+      allow create: if isSuperOwner() || (isSignedIn() && (
                       incoming().schoolId == currentUser().schoolId && 
                       incoming().executorId == request.auth.uid &&
                       (incoming().timestamp == request.time || incoming().timestamp == null) &&
@@ -72,7 +73,7 @@ service cloud.firestore {
     match /announcements/{annId} {
       allow read: if true;
       allow create: if isSuperOwner() || isKepalaSekolah(incoming().schoolId);
-      allow update, delete: if isSuperOwner() || isKepalaSekolah(existing().schoolId);
+      allow update, delete: if isSuperOwner() || isKepalaSekolah(resource.data.schoolId);
     }
 
     match /users/{userId} {
@@ -83,35 +84,34 @@ service cloud.firestore {
         (resource.data.inviteEmail == request.auth.token.email)
       );
       allow create: if isSignedIn() && (request.auth.uid == userId || isKepalaSekolah(incoming().schoolId) || isSuperOwner()); 
-      allow update: if isSuperOwner() || isKepalaSekolah(existing().schoolId) || (request.auth.uid == userId && incoming().diff(existing()).affectedKeys().hasOnly(['username', 'fullName']));
-      allow delete: if isSuperOwner() || isKepalaSekolah(existing().schoolId);
+      allow update: if isSuperOwner() || isKepalaSekolah(resource.data.schoolId) || (request.auth.uid == userId && incoming().diff(existing()).affectedKeys().hasOnly(['username', 'fullName']));
+      allow delete: if isSuperOwner() || isKepalaSekolah(resource.data.schoolId);
     }
 
     match /classes/{classId} {
       allow read: if isSuperOwner() || belongsToSchool(resource.data.schoolId);
       allow create: if isSuperOwner() || isKepalaSekolah(incoming().schoolId) || isBendahara(incoming().schoolId);
-      allow update: if isSuperOwner() || (belongsToSchool(existing().schoolId) && 
-                      (isKepalaSekolah(existing().schoolId) || isBendahara(existing().schoolId) || isTU(existing().schoolId)));
-      allow delete: if isSuperOwner() || isKepalaSekolah(existing().schoolId);
+      allow update: if isSuperOwner() || (belongsToSchool(resource.data.schoolId) && 
+                      (isKepalaSekolah(resource.data.schoolId) || isBendahara(resource.data.schoolId) || isTU(resource.data.schoolId)));
+      allow delete: if isSuperOwner() || isKepalaSekolah(resource.data.schoolId) || isBendahara(resource.data.schoolId);
     }
 
     match /students/{studentId} {
       allow read: if isSuperOwner() || belongsToSchool(resource.data.schoolId) || true;
       allow create: if isSuperOwner() || isKepalaSekolah(incoming().schoolId) || isTU(incoming().schoolId) || isBendahara(incoming().schoolId);
-      allow update: if isSuperOwner() || (belongsToSchool(existing().schoolId) && 
-                      (isKepalaSekolah(existing().schoolId) || isTU(existing().schoolId) || isBendahara(existing().schoolId)));
-      allow delete: if isSuperOwner() || isKepalaSekolah(existing().schoolId);
+      allow update: if isSuperOwner() || (belongsToSchool(resource.data.schoolId) && 
+                      (isKepalaSekolah(resource.data.schoolId) || isTU(resource.data.schoolId) || isBendahara(resource.data.schoolId)));
+      allow delete: if isSuperOwner() || isKepalaSekolah(resource.data.schoolId) || isBendahara(resource.data.schoolId);
     }
 
     match /tu_wallets/{walletId} {
       allow read: if isSignedIn() && (isSuperOwner() || belongsToSchool(resource.data.schoolId));
-      allow create, update: if isSignedIn() && (isSuperOwner() || (
-                               belongsToSchool(resource == null ? incoming().schoolId : existing().schoolId) && 
-                               (isKepalaSekolah(resource == null ? incoming().schoolId : existing().schoolId) || 
-                                isBendahara(resource == null ? incoming().schoolId : existing().schoolId) || 
-                                isTU(resource == null ? incoming().schoolId : existing().schoolId))
-                             ));
-      allow delete: if isSuperOwner();
+      allow create, update, delete: if isSuperOwner() || (isSignedIn() && 
+                               belongsToSchool(resource == null ? incoming().schoolId : resource.data.schoolId) && 
+                               (isKepalaSekolah(resource == null ? incoming().schoolId : resource.data.schoolId) || 
+                                isBendahara(resource == null ? incoming().schoolId : resource.data.schoolId) || 
+                                isTU(resource == null ? incoming().schoolId : resource.data.schoolId))
+                             );
     }
   }
 }

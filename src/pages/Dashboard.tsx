@@ -398,8 +398,7 @@ const KepalaSekolahDashboard = () => {
                     await batch.commit();
                     alert('SISTEM DIBERSIHKAN: Semua data operasional telah dihapus. Struktur Organisasi (Staf) tetap dipertahankan. Siap untuk presentasi!');
                   } catch (err: any) {
-                    console.error(err);
-                    alert('Gagal reset: ' + err.message);
+                    handleFirestoreError(err, OperationType.WRITE, 'bulk_reset');
                   } finally {
                     setLoading(false);
                   }

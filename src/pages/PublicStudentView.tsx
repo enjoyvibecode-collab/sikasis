@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Student, Transaction } from '../types';
 import * as XLSX from 'xlsx';
 import { jsPDF } from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 
 export default function PublicStudentView() {
   const navigate = useNavigate();
@@ -106,7 +106,7 @@ export default function PublicStudentView() {
 
   const exportToPDF = () => {
     if (!student) return;
-    const doc = new jsPDF() as any;
+    const doc = new jsPDF();
     
     doc.setFontSize(18);
     doc.text('SiKasis - Laporan Tabungan Siswa', 14, 20);
@@ -117,13 +117,13 @@ export default function PublicStudentView() {
     doc.text(`Saldo Akhir: Rp ${student.balanceSavings.toLocaleString('id-ID')}`, 14, 42);
     
     const tableData = transactions.map(tx => [
-      tx.timestamp?.toDate().toLocaleDateString('id-ID'),
+      tx.timestamp?.toDate ? tx.timestamp.toDate().toLocaleDateString('id-ID') : '-',
       tx.type.replace(/_/g, ' '),
       `Rp ${tx.amount.toLocaleString('id-ID')}`,
       tx.notes || '-'
     ]);
 
-    doc.autoTable({
+    autoTable(doc, {
       startY: 50,
       head: [['Tanggal', 'Jenis Transaksi', 'Jumlah', 'Keterangan']],
       body: tableData,
