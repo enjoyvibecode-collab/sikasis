@@ -518,36 +518,12 @@ const BendaharaDashboard = () => {
 
     setLoading(true);
     try {
-      // 1. Kurangi Saldo Central
-      await updateDoc(doc(db, 'schools', profile!.schoolId!), {
-        centralBalance: school.centralBalance - val
-      });
-
-      // 2. Tambah Saldo Wallet TU
-      const walletRef = doc(db, 'tu_wallets', selectedTu);
-      const walletSnap = await getDoc(walletRef);
-      if (walletSnap.exists()) {
-        await updateDoc(walletRef, {
-          balance: walletSnap.data().balance + val
-        });
-      } else {
-        await setDoc(walletRef, {
-          schoolId: profile?.schoolId,
-          balance: val,
-          lastUpdated: new Date().toISOString()
-        });
-      }
-
-      // 3. Catat Transaksi
-      const txId = `tx_${Date.now()}`;
-      await setDoc(doc(db, 'transactions', txId), {
-        schoolId: profile?.schoolId,
-        type: 'MODAL_TU_MASUK',
+      await executeAtomicTransaction({
+        schoolId: profile!.schoolId!,
         amount: val,
-        executorId: profile?.id || auth.currentUser?.uid,
-        targetId: selectedTu,
-        timestamp: new Date().toISOString(),
-        status: 'completed'
+        type: 'MODAL_TU_MASUK',
+        tuId: selectedTu,
+        notes: `Alokasi modal tunai dari Bendahara Sekolah`
       });
 
       setIsAlokasiOpen(false);
@@ -679,8 +655,9 @@ const TUDashboard = () => {
   const [loading, setLoading] = React.useState(false);
 
   React.useEffect(() => {
-    if (!profile?.id) return;
-    const unsub = onSnapshot(doc(db, 'tu_wallets', profile.id), (doc) => {
+    if (!profile?.uid || !profile?.schoolId) return;
+    const walletId = `${profile.schoolId}_${profile.uid}`;
+    const unsub = onSnapshot(doc(db, 'tu_wallets', walletId), (doc) => {
       setWallet(doc.data());
     });
 

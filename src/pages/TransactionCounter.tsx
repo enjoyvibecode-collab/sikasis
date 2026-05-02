@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../context/AuthContext';
 import { Card, Button, Input } from '../components/UI';
-import { Search, Wallet, School as SchoolIcon, UserCircle, ArrowRightCircle } from 'lucide-react';
+import { Search, Wallet, School as SchoolIcon, UserCircle, ArrowRightCircle, Coins } from 'lucide-react';
 import { Student, ClassData } from '../types';
 import { SavingsTransactionModal } from '../components/SavingsTransactionModal';
 import { ClassCashModal } from '../components/ClassCashModal';
@@ -13,6 +13,7 @@ export default function TransactionCounter() {
   const [activeTab, setActiveTab] = useState<'savings' | 'class_cash'>('savings');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedClassId, setSelectedClassId] = useState('');
+  const [tuWallet, setTuWallet] = useState<any>(null);
   
   const [students, setStudents] = useState<Student[]>([]);
   const [classes, setClasses] = useState<ClassData[]>([]);
@@ -26,6 +27,12 @@ export default function TransactionCounter() {
   // Fetch Data based on Authority
   useEffect(() => {
     if (!profile?.schoolId) return;
+
+    // Fetch TU Wallet
+    const walletRef = doc(db, 'tu_wallets', `${profile.schoolId}_${profile.uid}`);
+    const unsubWallet = onSnapshot(walletRef, (snap) => {
+      if (snap.exists()) setTuWallet(snap.data());
+    });
 
     let studentQ = query(
       collection(db, 'students'),
@@ -71,6 +78,7 @@ export default function TransactionCounter() {
     return () => {
       unsubStudents();
       unsubClasses();
+      unsubWallet();
     };
   }, [profile]);
 
@@ -89,9 +97,23 @@ export default function TransactionCounter() {
 
   return (
     <div className="p-4 md:p-8 max-w-5xl mx-auto">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-slate-800">Loket Transaksi Cepat</h1>
-        <p className="text-sm text-slate-500">Pilih kelas dan tentukan jenis transaksi.</p>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4 mb-8">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-800">Loket Transaksi Cepat</h1>
+          <p className="text-sm text-slate-500">Pilih kelas dan tentukan jenis transaksi.</p>
+        </div>
+        
+        <div className="bg-white px-6 py-3 rounded-2xl border-2 border-brand-sand shadow-sm flex items-center gap-4">
+          <div className="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center">
+            <Coins size={20} />
+          </div>
+          <div>
+            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Modal di Tangan (Tunai)</p>
+            <p className="text-lg font-black text-slate-800">
+              Rp {(tuWallet?.balance || 0).toLocaleString('id-ID')}
+            </p>
+          </div>
+        </div>
       </div>
 
       <div className="flex gap-2 p-1 bg-brand-sand/50 rounded-2xl mb-6">
