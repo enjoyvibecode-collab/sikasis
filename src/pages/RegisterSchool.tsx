@@ -54,6 +54,9 @@ export default function RegisterSchool() {
         name: formData.schoolName,
         address: formData.schoolAddress,
         status: 'pending',
+        academicYear: '2025/2026',
+        semester: 'Ganjil',
+        centralBalance: 0,
         createdAt: serverTimestamp(),
         ownerEmail: user.email
       });

@@ -25,7 +25,8 @@ export default function StudentManagement() {
     nisn: '',
     whatsappStudent: '',
     whatsappParent: '',
-    classId: ''
+    classId: '',
+    balanceSavings: '0'
   });
 
   useEffect(() => {
@@ -56,17 +57,17 @@ export default function StudentManagement() {
 
   const downloadTemplate = () => {
     const template = [
-      { 'Nama Lengkap': 'Asep Contoh', 'NISN': '12345678', 'WA Siswa': '08123456789', 'WA Orangtua': '08987654321', 'Nama Kelas': 'X RPL 1' }
+      { 'Nama Lengkap': 'Asep Contoh', 'NISN': '12345678', 'WA Siswa': '08123456789', 'WA Orangtua': '08987654321', 'Nama Kelas': 'X RPL 1', 'Saldo Tabungan Awal': 0 }
     ];
     const ws = XLSX.utils.json_to_sheet(template);
     
-    // Set column widths to prevent overlapping
     ws['!cols'] = [
       { wch: 30 }, // Nama Lengkap
       { wch: 15 }, // NISN
       { wch: 20 }, // WA Siswa
       { wch: 20 }, // WA Orangtua
-      { wch: 20 }  // Nama Kelas
+      { wch: 20 }, // Nama Kelas
+      { wch: 20 }  // Saldo Awal
     ];
 
     const wb = XLSX.utils.book_new();
@@ -110,6 +111,7 @@ export default function StudentManagement() {
           const nisnVal = String(getVal(['NISN', 'Nomor Induk', 'ID']) || '');
           const waStudent = String(getVal(['WA Siswa', 'WhatsApp Siswa', 'Phone Student']) || '');
           const waParent = String(getVal(['WA Orangtua', 'WhatsApp Orangtua', 'Phone Parent']) || '');
+          const initialBalance = parseInt(getVal(['Saldo Tabungan Awal', 'Saldo', 'Balance']) || '0');
           
           const classNameLower = rawClassName.toLowerCase();
           
@@ -142,7 +144,7 @@ export default function StudentManagement() {
             whatsappParent: waParent,
             classId: targetClassId,
             className: rawClassName || 'Umum',
-            balanceSavings: 0,
+            balanceSavings: isNaN(initialBalance) ? 0 : initialBalance,
             status: 'active',
             createdAt: new Date().toISOString()
           });
@@ -174,6 +176,7 @@ export default function StudentManagement() {
       
       const payload: any = {
         ...formData,
+        balanceSavings: formData.balanceSavings ? parseInt(formData.balanceSavings as any) : 0,
         className,
         schoolId: profile?.schoolId,
         status: 'active',
@@ -181,14 +184,13 @@ export default function StudentManagement() {
       };
 
       if (!isEditMode) {
-        payload.balanceSavings = 0;
         payload.createdAt = new Date().toISOString();
       }
 
       await setDoc(doc(db, 'students', studentId), payload, { merge: true });
       
       setIsModalOpen(false);
-      setFormData({ fullName: '', nisn: '', whatsappStudent: '', whatsappParent: '', classId: '' });
+      setFormData({ fullName: '', nisn: '', whatsappStudent: '', whatsappParent: '', classId: '', balanceSavings: '0' });
       setIsEditMode(false);
       setEditingId(null);
     } catch (err) {
@@ -204,7 +206,8 @@ export default function StudentManagement() {
       nisn: student.nisn,
       whatsappStudent: student.whatsappStudent || '',
       whatsappParent: student.whatsappParent || '',
-      classId: student.classId
+      classId: student.classId,
+      balanceSavings: String(student.balanceSavings || 0)
     });
     setEditingId(student.id);
     setIsEditMode(true);
@@ -240,7 +243,7 @@ export default function StudentManagement() {
               variant="outline" 
               onClick={() => {
                 setIsEditMode(false);
-                setFormData({ fullName: '', nisn: '', whatsappStudent: '', whatsappParent: '', classId: '' });
+                setFormData({ fullName: '', nisn: '', whatsappStudent: '', whatsappParent: '', classId: '', balanceSavings: '0' });
                 setIsModalOpen(true);
               }} 
               className="gap-2 flex-1 md:flex-none border-brand-teal text-brand-teal"
@@ -413,6 +416,18 @@ export default function StudentManagement() {
               ))}
             </select>
           </div>
+          {!isEditMode && (
+            <div>
+              <label className="text-sm font-bold text-slate-700 mb-1 block">Saldo Tabungan Awal (Rp)</label>
+              <Input 
+                type="number"
+                placeholder="0" 
+                value={formData.balanceSavings}
+                onChange={e => setFormData({ ...formData, balanceSavings: e.target.value })}
+              />
+              <p className="text-[10px] text-slate-400 mt-1 italic">*Hanya isi jika ada saldo yang dibawa dari sistem lama.</p>
+            </div>
+          )}
           <Button className="w-full h-12 shadow-lg shadow-brand-teal/20" disabled={loading}>
             {loading ? 'Menyimpan...' : (isEditMode ? 'Simpan Perubahan' : 'Daftarkan Siswa')}
           </Button>

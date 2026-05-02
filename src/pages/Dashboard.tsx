@@ -18,7 +18,11 @@ import {
   Plus,
   Send,
   ShieldCheck,
-  Minus
+  Minus,
+  CalendarDays,
+  GraduationCap,
+  AlertTriangle,
+  ArrowRight
 } from 'lucide-react';
 import { Button, Modal, Input } from '../components/UI';
 import { auth, db } from '../lib/firebase';
@@ -447,9 +451,11 @@ const BendaharaDashboard = () => {
   const [stats, setStats] = React.useState({ totalSavings: 0, totalClassesCash: 0 });
   const [isTopUpOpen, setIsTopUpOpen] = React.useState(false);
   const [isAlokasiOpen, setIsAlokasiOpen] = React.useState(false);
+  const [isPeriodeOpen, setIsPeriodeOpen] = React.useState(false);
   const [amount, setAmount] = React.useState('');
   const [loading, setLoading] = React.useState(false);
   const [tuStaff, setTuStaff] = React.useState<any[]>([]);
+  const [tuWallets, setTuWallets] = React.useState<any[]>([]);
   const [selectedTu, setSelectedTu] = React.useState('');
 
   React.useEffect(() => {
@@ -471,6 +477,12 @@ const BendaharaDashboard = () => {
       setStats(prev => ({ ...prev, totalClassesCash: total }));
     });
 
+    // Watch all TU wallets for closing validation
+    const walletQ = query(collection(db, 'tu_wallets'), where('schoolId', '==', profile.schoolId));
+    const unsubWallets = onSnapshot(walletQ, (snap) => {
+      setTuWallets(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+
     const tuQuery = query(
       collection(db, 'users'), 
       where('schoolId', '==', profile.schoolId),
@@ -484,8 +496,93 @@ const BendaharaDashboard = () => {
       unsub();
       unsubStudents();
       unsubClasses();
+      unsubWallets();
     };
   }, [profile?.schoolId]);
+
+  const totalTuBalance = tuWallets.reduce((acc, w) => acc + (w.balance || 0), 0);
+
+  const handleTutupBuku = async () => {
+    if (totalTuBalance > 0) {
+      alert(`Gagal Tutup Buku! Masih ada saldo modal Rp ${totalTuBalance.toLocaleString('id-ID')} di tangan TU. Harap tarik semua modal ke pusat terlebih dahulu.`);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const isSemesterGenap = school?.semester === 'Genap';
+      
+      if (isSemesterGenap) {
+        // Triggers Year Promotion
+        if (!window.confirm(`Anda akan menutup TAHUN AJARAN ${school?.academicYear}. \n\nSiswa Kelas 9 akan menjadi Alumni, Kelas 8 naik ke Kelas 9, dan Kelas 7 naik ke Kelas 8. \n\nLanjutkan?`)) return;
+        
+        const batch = writeBatch(db);
+        const schoolRef = doc(db, 'schools', profile!.schoolId!);
+        
+        // 1. Calculate new academic year
+        const currentYearStart = parseInt(school?.academicYear.split('/')[0]);
+        const newYear = `${currentYearStart + 1}/${currentYearStart + 2}`;
+        
+        // 2. Fetch all classes to promote
+        const classSnap = await getDocs(query(collection(db, 'classes'), where('schoolId', '==', profile!.schoolId!)));
+        
+        for (const classDoc of classSnap.docs) {
+          const classData = classDoc.data();
+          const className = classData.name;
+          const grade = className.split(' ')[0]; // Assumes "7 A", "8 B"
+          
+          let newName = className;
+          let newStatus = 'active';
+
+          if (grade === '9') {
+            newStatus = 'graduated'; 
+          } else if (grade === '8') {
+            newName = className.replace('8', '9');
+          } else if (grade === '7') {
+            newName = className.replace('7', '8');
+          }
+
+          batch.update(classDoc.ref, { 
+            name: newName, 
+            status: newStatus,
+            lastPromoted: new Date().toISOString()
+          });
+
+          // Update students in this class
+          const studentSnap = await getDocs(query(collection(db, 'students'), where('classId', '==', classDoc.id)));
+          studentSnap.docs.forEach(sDoc => {
+            batch.update(sDoc.ref, { 
+              className: newName,
+              status: newStatus === 'graduated' ? 'alumni' : 'active'
+            });
+          });
+        }
+
+        batch.update(schoolRef, {
+          academicYear: newYear,
+          semester: 'Ganjil',
+          lastClosing: new Date().toISOString()
+        });
+
+        await batch.commit();
+        alert(`Buka Buku Sukses! Selamat datang di Tahun Ajaran ${newYear} Semester Ganjil.`);
+      } else {
+        // Semester Ganjil -> Semester Genap
+        if (!window.confirm(`Tutup Semester Ganjil dan buka Semester Genap?`)) return;
+        await updateDoc(doc(db, 'schools', profile!.schoolId!), {
+          semester: 'Genap',
+          lastClosing: new Date().toISOString()
+        });
+        alert('Sukses! Sekarang berada di Semester Genap.');
+      }
+      setIsPeriodeOpen(false);
+    } catch (err) {
+      console.error(err);
+      alert('Terjadi kesalahan saat proses tutup buku.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleTopUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -554,7 +651,7 @@ const BendaharaDashboard = () => {
         </h2>
         <div className="relative mt-8 flex justify-center gap-4">
           <Button onClick={() => setIsTopUpOpen(true)} className="bg-white text-brand-teal hover:bg-teal-50 border-none shadow-lg px-6">
-            <Plus size={18} className="mr-2" /> Top Up Central
+            <Plus size={18} className="mr-2" /> Inisialisasi Kas
           </Button>
           <Button onClick={() => setIsAlokasiOpen(true)} variant="outline" className="border-white text-white hover:bg-white/10 px-6">
             <Send size={18} className="mr-2" /> Alokasi ke TU
@@ -562,7 +659,7 @@ const BendaharaDashboard = () => {
         </div>
       </Card>
 
-      <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
         <Card className="p-6 bg-white shadow-sm flex flex-col items-center">
           <div className="w-10 h-10 bg-teal-50 text-brand-teal rounded-xl flex items-center justify-center mb-3">
             <Wallet size={20} />
@@ -579,19 +676,109 @@ const BendaharaDashboard = () => {
           <p className="text-lg font-bold text-slate-800 mt-1">Rp {stats.totalClassesCash.toLocaleString('id-ID')}</p>
         </Card>
 
-        <Card className="p-6 bg-white shadow-sm flex flex-col items-center justify-center lg:col-span-1 col-span-2">
-          <Link to="transactions" className="w-full">
-            <Button variant="outline" className="w-full text-xs h-10">LIHAT RIWAYAT KAS</Button>
+        <Card className="p-6 bg-white shadow-sm flex flex-col items-center justify-center lg:col-span-1 col-span-1">
+          <div className="w-10 h-10 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center mb-3">
+            <CalendarDays size={20} />
+          </div>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Periode Aktif</p>
+          <p className="text-sm font-bold text-slate-800 mt-1">{school?.academicYear || '2025/2026'}</p>
+          <p className="text-[10px] font-bold text-amber-600 uppercase">SMT {school?.semester || 'GANJIL'}</p>
+        </Card>
+
+        <Card className="p-6 bg-white shadow-sm flex flex-col items-center justify-center lg:col-span-1 col-span-1">
+          <Button 
+            variant="outline" 
+            className="w-full text-[10px] h-10 border-brand-teal text-brand-teal font-bold"
+            onClick={() => setIsPeriodeOpen(true)}
+          >
+            TUTUP BUKU / KENAIKAN
+          </Button>
+          <Link to="transactions" className="w-full mt-2">
+            <Button variant="ghost" className="w-full text-[10px] h-8 text-slate-400">RIWAYAT KAS</Button>
           </Link>
         </Card>
       </div>
 
-      {/* Modal Top Up */}
-      <Modal isOpen={isTopUpOpen} onClose={() => setIsTopUpOpen(false)} title="Top Up Saldo Central">
+      {/* Modal Periode */}
+      <Modal isOpen={isPeriodeOpen} onClose={() => setIsPeriodeOpen(false)} title="Manajemen Periode & Kelulusan">
+        <div className="space-y-6">
+          <div className="p-4 bg-slate-900 text-white rounded-2xl">
+            <div className="flex justify-between items-center mb-4">
+               <div className="flex items-center gap-3">
+                 <div className="w-10 h-10 bg-brand-teal/20 text-brand-teal rounded-xl flex items-center justify-center">
+                   <CalendarDays size={20} />
+                 </div>
+                 <div>
+                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Tahun Ajaran Aktif</p>
+                   <h4 className="text-lg font-bold">{school?.academicYear || '2025/2026'}</h4>
+                 </div>
+               </div>
+               <div className="text-right">
+                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Semester</p>
+                 <span className="bg-brand-teal text-white text-[10px] px-2 py-0.5 rounded-full font-bold">
+                    {school?.semester || 'GANJIL'}
+                 </span>
+               </div>
+            </div>
+            
+            <div className="h-px bg-white/10 w-full mb-4"></div>
+            
+            <div className="space-y-2">
+              <p className="text-xs text-slate-400">Total Modal di Tangan TU saat ini:</p>
+              <div className={`p-3 rounded-xl flex justify-between items-center ${totalTuBalance > 0 ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'}`}>
+                <span className="text-sm font-bold">Rp {totalTuBalance.toLocaleString('id-ID')}</span>
+                {totalTuBalance > 0 ? <AlertTriangle size={16} /> : <Check size={16} />}
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="p-4 border-2 border-slate-100 rounded-2xl">
+              <div className="flex items-center gap-3 mb-2">
+                <div className="w-8 h-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center">
+                  <ArrowRight size={18} />
+                </div>
+                <h5 className="font-bold text-slate-800">
+                  {school?.semester === 'Ganjil' ? 'Buka Semester Genap' : 'Tutup Tahun Ajaran & Kenaikan Kelas'}
+                </h5>
+              </div>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                {school?.semester === 'Ganjil' 
+                  ? 'Menandai berakhirnya semester ganjil. Saldo tabungan dan kas tetap berlanjut.' 
+                  : 'Siswa akan naik tingkat. Kelas 9 menjadi Alumni. Pastikan semua transaksi tahun ini sudah selesai.'}
+              </p>
+            </div>
+
+            <Button 
+              className="w-full h-14 text-lg gap-3" 
+              disabled={loading || totalTuBalance > 0}
+              onClick={handleTutupBuku}
+            >
+              {loading ? 'Sedang Memproses...' : (
+                <>
+                  <GraduationCap size={24} /> 
+                  {school?.semester === 'Ganjil' ? 'KONFIRMASI SEMESTER BARU' : 'PROSES KENAIKAN KELAS'}
+                </>
+              )}
+            </Button>
+            
+            {totalTuBalance > 0 && (
+              <p className="text-[10px] text-rose-500 font-bold text-center uppercase tracking-wider">
+                *Harap tarik semua modal TU ke pusat untuk melakukan penutupan buku.
+              </p>
+            )}
+          </div>
+        </div>
+      </Modal>
+
+      {/* Modal Inisialisasi Kas */}
+      <Modal isOpen={isTopUpOpen} onClose={() => setIsTopUpOpen(false)} title="Inisialisasi / Tambah Kas Utama">
         <form onSubmit={handleTopUp} className="space-y-4">
-          <p className="text-sm text-slate-500">Masukkan jumlah dana masuk ke kas utama sekolah (Misal: dari Yayasan atau Dana BOS).</p>
+          <p className="text-sm text-slate-500">
+            Masukkan jumlah dana tunai riil yang saat ini dipegang oleh Bendahara. Dana ini akan digunakan sebagai dasar (backing) untuk melayani tabungan siswa dan kas kelas.
+          </p>
           <div>
-            <label className="text-sm font-bold text-slate-700 mb-1 block">Jumlah (Rp)</label>
+            <label className="text-sm font-bold text-slate-700 mb-1 block">Jumlah Dana Tunai (Rp)</label>
             <Input 
               type="number" 
               placeholder="0" 
@@ -602,7 +789,7 @@ const BendaharaDashboard = () => {
             />
           </div>
           <Button className="w-full h-12 mt-4" disabled={loading}>
-            {loading ? 'Memproses...' : 'Konfirmasi Top Up'}
+            {loading ? 'Memproses...' : 'Konfirmasi Inisialisasi Kas'}
           </Button>
         </form>
       </Modal>

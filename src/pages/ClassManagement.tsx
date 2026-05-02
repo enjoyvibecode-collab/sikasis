@@ -15,6 +15,7 @@ export default function ClassManagement() {
   const [selectedClassForCash, setSelectedClassForCash] = useState<ClassData | null>(null);
   const [loading, setLoading] = useState(false);
   const [newClassName, setNewClassName] = useState('');
+  const [initialBalance, setInitialBalance] = useState('0');
 
   useEffect(() => {
     if (!profile?.schoolId) return;
@@ -37,11 +38,12 @@ export default function ClassManagement() {
       await setDoc(doc(db, 'classes', classId), {
         schoolId: profile?.schoolId,
         name: newClassName,
-        balanceCash: 0,
+        balanceCash: parseInt(initialBalance) || 0,
         status: 'active'
       });
       setIsModalOpen(false);
       setNewClassName('');
+      setInitialBalance('0');
     } catch (err) {
       handleFirestoreError(err, OperationType.CREATE, 'classes');
     } finally {
@@ -132,6 +134,16 @@ export default function ClassManagement() {
               onChange={e => setNewClassName(e.target.value)}
               autoFocus
             />
+          </div>
+          <div>
+            <label className="text-sm font-bold text-slate-700 mb-1 block">Saldo Awal Kas Kelas (Rp)</label>
+            <Input 
+              type="number"
+              placeholder="0" 
+              value={initialBalance}
+              onChange={e => setInitialBalance(e.target.value)}
+            />
+            <p className="text-[10px] text-slate-400 mt-1 italic">*Hanya isi jika kelas sudah memiliki kas yang berjalan.</p>
           </div>
           <Button className="w-full h-12 mt-4" disabled={loading}>
             {loading ? 'Memproses...' : 'Simpan Kelas'}
