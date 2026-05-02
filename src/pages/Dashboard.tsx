@@ -1635,6 +1635,7 @@ export default function Dashboard() {
         return [
           { icon: <LayoutDashboard size={20} />, label: 'Kas Utama', path: '/dashboard' },
           { icon: <Plus size={20} />, label: 'Loket Transaksi', path: '/dashboard/transactions/counter' },
+          { icon: <SchoolIcon size={20} />, label: 'Manajemen Kelas', path: '/dashboard/classes' },
           { icon: <UserCircle size={20} />, label: 'Data Siswa', path: '/dashboard/students' },
           { icon: <History size={20} />, label: 'Riwayat Kas', path: '/dashboard/transactions' },
         ];
