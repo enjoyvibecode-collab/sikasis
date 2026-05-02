@@ -29,7 +29,7 @@ export default function TransactionCounter() {
     if (!profile?.schoolId) return;
 
     // Fetch TU Wallet
-    const walletRef = doc(db, 'tu_wallets', `${profile.schoolId}_${profile.uid}`);
+    const walletRef = doc(db, 'tu_wallets', `${profile.schoolId}_${profile.id}`);
     const unsubWallet = onSnapshot(walletRef, (snap) => {
       if (snap.exists()) setTuWallet(snap.data());
     }, (error) => {
