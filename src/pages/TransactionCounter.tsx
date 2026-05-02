@@ -50,8 +50,10 @@ export default function TransactionCounter() {
       // Filter by TU Authority (Grades)
       if (profile.role === 'tu' && profile.authorizedGrades && !profile.authorizedGrades.includes('Semua')) {
         data = data.filter(s => {
-          const grade = s.className.split(' ')[0]; 
-          return profile.authorizedGrades?.includes(grade);
+          const matchesGrade = profile.authorizedGrades?.some((g: string) => 
+            s.className.startsWith(g) || s.className.includes(` ${g}`)
+          );
+          return matchesGrade;
         });
       }
       
@@ -64,8 +66,11 @@ export default function TransactionCounter() {
       // Filter by TU Authority (Grades)
       if (profile.role === 'tu' && profile.authorizedGrades && !profile.authorizedGrades.includes('Semua')) {
         data = data.filter(c => {
-          const grade = c.name.split(' ')[0];
-          return profile.authorizedGrades?.includes(grade);
+          // Robust check: matches "7", "7 A", "Kelas 7" etc if authorizedGrades=['7']
+          const matchesGrade = profile.authorizedGrades?.some((g: string) => 
+            c.name.startsWith(g) || c.name.includes(` ${g}`)
+          );
+          return matchesGrade;
         });
       }
       
@@ -73,6 +78,13 @@ export default function TransactionCounter() {
       data.sort((a, b) => a.name.localeCompare(b.name));
       
       setClasses(data);
+
+      // CRITICAL: Reset selected class if it's no longer in the authorized list
+      setSelectedClassId(prevId => {
+        if (!prevId) return '';
+        const stillExists = data.some(c => c.id === prevId);
+        return stillExists ? prevId : '';
+      });
     });
 
     return () => {
