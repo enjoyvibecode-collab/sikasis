@@ -278,12 +278,15 @@ const KepalaSekolahDashboard = () => {
   const [stats, setStats] = React.useState({ staff: 0, students: 0, classes: 0, totalSavings: 0, totalClassCash: 0 });
   const [recentTxs, setRecentTxs] = React.useState<any[]>([]);
   const [showAnnouncements, setShowAnnouncements] = React.useState(false);
+  const [school, setSchool] = React.useState<any>(null);
+  const [loading, setLoading] = React.useState(false);
 
   React.useEffect(() => {
     if (!profile?.schoolId) return;
     
     // Fetch summary stats
     const staffQ = query(collection(db, 'users'), where('schoolId', '==', profile.schoolId));
+    onSnapshot(doc(db, 'schools', profile.schoolId), (d) => setSchool({ id: d.id, ...d.data() }));
     const studentQ = query(collection(db, 'students'), where('schoolId', '==', profile.schoolId));
     const classQ = query(collection(db, 'classes'), where('schoolId', '==', profile.schoolId));
     
@@ -345,11 +348,26 @@ const KepalaSekolahDashboard = () => {
           </div>
         </div>
         <div className="text-right hidden md:block">
-          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Status Sekolah</p>
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 text-xs font-bold">
-            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            SISTEM AKTIF
-          </span>
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">Status Penutupan Buku</p>
+          <Button 
+            size="sm" 
+            variant={school?.isClosingAuthorizedByPrincipal ? "default" : "outline"}
+            className={`h-9 gap-2 font-bold ${school?.isClosingAuthorizedByPrincipal ? 'bg-emerald-600 border-none' : 'border-amber-200 text-amber-600'}`}
+            onClick={async () => {
+              setLoading(true);
+              try {
+                await updateDoc(doc(db, 'schools', profile!.schoolId!), {
+                  isClosingAuthorizedByPrincipal: !school?.isClosingAuthorizedByPrincipal
+                });
+              } finally {
+                setLoading(false);
+              }
+            }}
+            disabled={loading}
+          >
+            {school?.isClosingAuthorizedByPrincipal ? <Check size={16} /> : <AlertTriangle size={16} />}
+            {school?.isClosingAuthorizedByPrincipal ? 'IZIN DIBERIKAN' : 'BERI IZIN TUTUP BUKU'}
+          </Button>
         </div>
       </div>
 
@@ -453,6 +471,7 @@ const BendaharaDashboard = () => {
   const [isAlokasiOpen, setIsAlokasiOpen] = React.useState(false);
   const [isTarikOpen, setIsTarikOpen] = React.useState(false);
   const [isPeriodeOpen, setIsPeriodeOpen] = React.useState(false);
+  const [isSyncOpen, setIsSyncOpen] = React.useState(false);
   const [amount, setAmount] = React.useState('');
   const [loading, setLoading] = React.useState(false);
   const [tuStaff, setTuStaff] = React.useState<any[]>([]);
@@ -521,12 +540,33 @@ const BendaharaDashboard = () => {
   }, [profile?.schoolId]);
 
   const totalTuBalance = tuWallets.reduce((acc, w) => acc + (w.balance || 0), 0);
-  const totalLiabilities = stats.totalSavings + stats.totalClassesCash;
+  const totalLiabilities = (stats.totalSavings || 0) + (stats.totalClassesCash || 0);
   const netCashPosition = (school?.centralBalance || 0) - totalLiabilities;
+
+  const handleSyncBalance = async () => {
+    if (!window.confirm('Sinkronisasi akan menyesuaikan Saldo Central agar sama dengan Total Tabungan + Kas Kelas. Ini akan menghapus selisih saldo saat ini. Lanjutkan?')) return;
+    setLoading(true);
+    try {
+      await updateDoc(doc(db, 'schools', profile!.schoolId!), {
+        centralBalance: totalLiabilities
+      });
+      setIsSyncOpen(false);
+      alert('Sinkronisasi Sukses! Sekarang saldo kas utama sudah sama dengan total kewajiban tabungan.');
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleTutupBuku = async () => {
     if (totalTuBalance > 0) {
-      alert(`Gagal Tutup Buku! Masih ada saldo modal Rp ${(totalTuBalance || 0).toLocaleString('id-ID')} di tangan TU. Harap tarik semua modal ke pusat terlebih dahulu.`);
+      alert(`Gagal Tutup Buku! Masih ada saldo modal di tangan TU. Harap tarik semua modal ke pusat terlebih dahulu.`);
+      return;
+    }
+
+    if (!school?.isClosingAuthorizedByPrincipal) {
+      alert('Gagal! Penutupan buku memerlukan otorisasi (Izin) dari akun Kepala Sekolah terlebih dahulu.');
       return;
     }
 
@@ -583,7 +623,8 @@ const BendaharaDashboard = () => {
         batch.update(schoolRef, {
           academicYear: newYear,
           semester: 'Ganjil',
-          lastClosing: new Date().toISOString()
+          lastClosing: new Date().toISOString(),
+          isClosingAuthorizedByPrincipal: false
         });
 
         await batch.commit();
@@ -593,7 +634,8 @@ const BendaharaDashboard = () => {
         if (!window.confirm(`Tutup Semester Ganjil dan buka Semester Genap?`)) return;
         await updateDoc(doc(db, 'schools', profile!.schoolId!), {
           semester: 'Genap',
-          lastClosing: new Date().toISOString()
+          lastClosing: new Date().toISOString(),
+          isClosingAuthorizedByPrincipal: false
         });
         alert('Sukses! Sekarang berada di Semester Genap.');
       }
@@ -730,17 +772,21 @@ const BendaharaDashboard = () => {
           <p className="text-lg font-bold text-slate-800 mt-1">Rp {(stats.totalClassesCash || 0).toLocaleString('id-ID')}</p>
         </Card>
 
-        <Card className={`p-6 shadow-sm border-none flex flex-col items-center text-center ${netCashPosition < 0 ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'}`}>
+        <Card 
+          className={`p-6 shadow-sm border-none flex flex-col items-center text-center cursor-pointer hover:shadow-md transition-all ${netCashPosition < 0 ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'}`}
+          onClick={() => netCashPosition !== 0 && setIsSyncOpen(true)}
+        >
           <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-3 ${netCashPosition < 0 ? 'bg-rose-100' : 'bg-emerald-100'}`}>
              <ShieldCheck size={20} />
           </div>
           <p className="text-[10px] font-bold uppercase tracking-widest opacity-60">Status Keamanan Kas</p>
           <p className="text-sm font-bold mt-1">
-            {netCashPosition < 0 ? 'DEFISIT Kas Riil' : 'Kas Aman / Sinkron'}
+            {netCashPosition < 0 ? 'DEFISIT Kas Riil' : netCashPosition > 0 ? 'SURPLUS Kas Riil' : 'Kas Aman / Sinkron'}
           </p>
           <p className="text-[11px] font-medium mt-1">
             Selisih: Rp {Math.abs(netCashPosition).toLocaleString('id-ID')}
           </p>
+          {netCashPosition !== 0 && <p className="text-[9px] mt-1 underline font-bold">KLIK UNTUK SINKRON</p>}
         </Card>
 
         <Card className="p-6 bg-white shadow-sm flex flex-col items-center justify-center lg:col-span-1 col-span-1">
@@ -852,16 +898,58 @@ const BendaharaDashboard = () => {
             
             <div className="h-px bg-white/10 w-full mb-4"></div>
             
-            <div className="space-y-2">
-              <p className="text-xs text-slate-400">Total Modal di Tangan TU saat ini:</p>
-              <div className={`p-3 rounded-xl flex justify-between items-center ${totalTuBalance > 0 ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'}`}>
-                <span className="text-sm font-bold">Rp {(totalTuBalance || 0).toLocaleString('id-ID')}</span>
-                {totalTuBalance > 0 ? <AlertTriangle size={16} /> : <Check size={16} />}
+            <div className="space-y-4">
+              <p className="text-xs text-slate-400">Modal di Tangan TU (Harus Nol):</p>
+              <div className="space-y-2">
+                {tuStaff.map(tu => {
+                  const wallet = tuWallets.find(w => w.tuId === tu.id);
+                  const balance = wallet?.balance || 0;
+                  if (balance === 0) return null;
+                  return (
+                    <div key={tu.id} className="p-3 bg-white/5 rounded-xl flex justify-between items-center border border-white/10">
+                      <span className="text-xs font-medium text-slate-300">{tu.fullName}</span>
+                      <span className="text-xs font-bold text-rose-400">Rp {balance.toLocaleString('id-ID')}</span>
+                    </div>
+                  );
+                })}
+                {totalTuBalance === 0 && (
+                  <div className="p-3 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-xl flex justify-between items-center">
+                    <span className="text-xs font-bold">Semua Modal TU sudah ditarik</span>
+                    <Check size={16} />
+                  </div>
+                )}
+                {totalTuBalance > 0 && (
+                  <div className="p-3 bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded-xl flex justify-between items-center">
+                    <span className="text-xs font-bold">Total: Rp {totalTuBalance.toLocaleString('id-ID')}</span>
+                    <AlertTriangle size={16} />
+                  </div>
+                )}
               </div>
             </div>
           </div>
 
           <div className="space-y-4">
+            <div className={`p-4 border-2 rounded-2xl ${school?.isClosingAuthorizedByPrincipal ? 'border-emerald-100 bg-emerald-50' : 'border-slate-100'}`}>
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-3">
+                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${school?.isClosingAuthorizedByPrincipal ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'}`}>
+                    <ShieldCheck size={18} />
+                  </div>
+                  <h5 className="font-bold text-slate-800">Izin Kepala Sekolah</h5>
+                </div>
+                {school?.isClosingAuthorizedByPrincipal ? (
+                  <span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 px-2 py-1 rounded-full uppercase">Diberikan</span>
+                ) : (
+                  <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-1 rounded-full uppercase">Menunggu</span>
+                )}
+              </div>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                {school?.isClosingAuthorizedByPrincipal 
+                  ? 'Kepala Sekolah telah menyetujui proses penutupan periode ini.' 
+                  : 'Otorisasi dari akun Kepala Sekolah diperlukan untuk memproses penutupan buku.'}
+              </p>
+            </div>
+
             <div className="p-4 border-2 border-slate-100 rounded-2xl">
               <div className="flex items-center gap-3 mb-2">
                 <div className="w-8 h-8 bg-blue-50 text-blue-600 rounded-lg flex items-center justify-center">
@@ -880,7 +968,7 @@ const BendaharaDashboard = () => {
 
             <Button 
               className="w-full h-14 text-lg gap-3" 
-              disabled={loading || totalTuBalance > 0}
+              disabled={loading || totalTuBalance > 0 || !school?.isClosingAuthorizedByPrincipal}
               onClick={handleTutupBuku}
             >
               {loading ? 'Sedang Memproses...' : (
@@ -961,7 +1049,35 @@ const BendaharaDashboard = () => {
         </form>
       </Modal>
 
-      {/* Modal Tarik TU */}
+      {/* Modal Sinkronisasi Saldo */}
+      <Modal isOpen={isSyncOpen} onClose={() => setIsSyncOpen(false)} title="Sinkronisasi Saldo Central">
+        <div className="space-y-4">
+          <div className="p-6 bg-amber-50 border border-amber-200 rounded-2xl text-center">
+            <AlertTriangle size={40} className="text-amber-600 mx-auto mb-4" />
+            <h4 className="font-bold text-amber-900 mb-1">Peringatan Audit Selisih</h4>
+            <p className="text-sm text-amber-700">Ditemukan selisih antara Saldo Central (Riil) dengan Total Kewajiban (Tabungan + Kas).</p>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div className="p-4 bg-slate-50 rounded-xl">
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Input Riil Saat Ini</p>
+              <p className="text-lg font-bold text-slate-800">Rp {school?.centralBalance?.toLocaleString('id-ID')}</p>
+            </div>
+            <div className="p-4 bg-slate-50 rounded-xl">
+              <p className="text-[10px] font-bold text-slate-400 uppercase">Harusnya (Total Kewajiban)</p>
+              <p className="text-lg font-bold text-brand-teal">Rp {totalLiabilities.toLocaleString('id-ID')}</p>
+            </div>
+          </div>
+
+          <p className="text-xs text-slate-500 leading-relaxed italic">
+            "Jika Anda yakin saldo tabungan siswa di aplikasi sudah benar tetapi angka saldo pusat tidak sinkron (akibat data lama atau penghapusan), tekan tombol di bawah untuk menyamakan saldo pusat dengan total kewajiban."
+          </p>
+
+          <Button className="w-full h-12 bg-amber-600 hover:bg-amber-700 border-none" disabled={loading} onClick={handleSyncBalance}>
+            {loading ? 'Menyeimbangkan...' : 'Samakan Saldo Pusat & Kewajiban'}
+          </Button>
+        </div>
+      </Modal>
       <Modal isOpen={isTarikOpen} onClose={() => setIsTarikOpen(false)} title={`Tarik Modal: ${selectedTuName}`}>
         <form onSubmit={handleTarikModal} className="space-y-4">
           <p className="text-sm text-slate-500">Tarik kembali sisa uang tunai yang dipegang Petugas TU ini ke dalam Kas Utama Sekolah.</p>
