@@ -906,16 +906,66 @@ const BendaharaDashboard = () => {
             <div className="h-px bg-white/10 w-full mb-4"></div>
             
             <div className="space-y-4">
-              <p className="text-xs text-slate-400">Modal di Tangan TU (Harus Nol):</p>
+              <div className="flex justify-between items-center">
+                <p className="text-xs text-slate-400">Modal di Tangan TU (Harus Nol):</p>
+                {totalTuBalance > 0 && (
+                  <button 
+                    onClick={async () => {
+                      if (!window.confirm('PERINGATAN: Sinkronisasi Paksa akan memindahkan SELURUH modal di tangan semua TU kembali ke Kas Pusat. Gunakan jika ada saldo yang nyangkut akibat penghapusan transaksi manual. Lanjutkan?')) return;
+                      setLoading(true);
+                      try {
+                        const batch = writeBatch(db);
+                        let totalRecovered = 0;
+                        tuWallets.forEach(w => {
+                          if (w.balance > 0) {
+                            totalRecovered += w.balance;
+                            batch.update(doc(db, 'tu_wallets', w.id), { balance: 0 });
+                          }
+                        });
+                        
+                        if (totalRecovered > 0) {
+                          const schoolRef = doc(db, 'schools', profile!.schoolId!);
+                          const schoolSnap = await getDoc(schoolRef);
+                          const currentBal = schoolSnap.data()?.centralBalance || 0;
+                          batch.update(schoolRef, { centralBalance: currentBal + totalRecovered });
+                          
+                          // Log the audit adjustment
+                          const auditRef = doc(collection(db, 'transactions'));
+                          batch.set(auditRef, {
+                            id: auditRef.id,
+                            schoolId: profile!.schoolId!,
+                            amount: totalRecovered,
+                            type: 'AUDIT_ADJUSTMENT_IN',
+                            description: 'Penarikan Paksa Modal TU (Audit/Tutup Buku)',
+                            timestamp: new Date()
+                          });
+                        }
+                        
+                        await batch.commit();
+                        alert('Audit Selesai! Semua modal TU telah dikembalikan ke Kas Pusat.');
+                      } catch (err) {
+                        console.error(err);
+                      } finally {
+                        setLoading(false);
+                      }
+                    }}
+                    className="text-[10px] font-bold text-brand-teal hover:underline"
+                  >
+                    SINKRON PAKSA KE PUSAT
+                  </button>
+                )}
+              </div>
               <div className="space-y-2">
-                {tuStaff.map(tu => {
-                  const wallet = tuWallets.find(w => w.tuId === tu.id);
-                  const balance = wallet?.balance || 0;
-                  if (balance === 0) return null;
+                {tuWallets.map(w => {
+                  if ((w.balance || 0) <= 0) return null;
+                  const staff = tuStaff.find(s => s.id === w.tuId);
                   return (
-                    <div key={tu.id} className="p-3 bg-white/5 rounded-xl flex justify-between items-center border border-white/10">
-                      <span className="text-xs font-medium text-slate-300">{tu.fullName}</span>
-                      <span className="text-xs font-bold text-rose-400">Rp {balance.toLocaleString('id-ID')}</span>
+                    <div key={w.id} className="p-3 bg-white/5 rounded-xl flex justify-between items-center border border-white/10">
+                      <div className="text-left">
+                        <span className="text-xs font-medium text-slate-300 block">{staff?.fullName || 'Staf (Dihapus/Orphan)'}</span>
+                        <span className="text-[10px] text-slate-500 font-mono">ID: {w.tuId.slice(-6)}</span>
+                      </div>
+                      <span className="text-xs font-bold text-rose-400">Rp {(w.balance || 0).toLocaleString('id-ID')}</span>
                     </div>
                   );
                 })}
